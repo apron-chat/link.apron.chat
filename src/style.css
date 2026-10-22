@@ -222,8 +222,9 @@ dd {
 .button {
 	display: flex;
 	align-items: center;
+	flex-wrap: wrap;
 	justify-content: space-between;
-	gap: var(--space-3);
+	gap: 2px var(--space-3);
 	min-height: 44px;
 	padding: var(--space-2) var(--space-4);
 	border: 1px solid var(--line-strong);
@@ -249,7 +250,14 @@ dd {
 	filter: brightness(1.08);
 }
 
+/* The label keeps its line; a long address moves under it. */
+.button > span:first-child {
+	flex: none;
+}
+
 .button-meta {
+	min-width: 0;
+	overflow-wrap: anywhere;
 	font-family: var(--font-mono);
 	font-size: var(--text-sm);
 	font-weight: 400;
@@ -361,4 +369,90 @@ dd {
 
 .footer a {
 	color: var(--ink-muted);
+}
+
+.add-app {
+	margin: var(--space-2) 0 var(--space-4);
+	font-size: var(--text-ui);
+}
+
+.add-app summary {
+	color: var(--denim);
+	cursor: pointer;
+}
+
+.add-app .paste {
+	margin-top: var(--space-3);
+	padding-top: 0;
+	border-top: 0;
+}
+
+.defaults {
+	margin-top: var(--space-6);
+}
+
+.choices {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.choices li {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-3);
+	padding: var(--space-2) 0;
+}
+
+.choices label {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: var(--space-1) var(--space-2);
+	min-width: 0;
+	cursor: pointer;
+}
+
+.choices input {
+	accent-color: var(--accent);
+	margin: 0;
+	align-self: center;
+}
+
+.app-host {
+	color: var(--ink-muted);
+	font-family: var(--font-mono);
+	font-size: var(--text-sm);
+	overflow-wrap: anywhere;
+}
+
+.paste select {
+	min-height: 44px;
+	padding: 0 var(--space-2);
+	border: 1px solid var(--line-strong);
+	border-radius: var(--radius-md);
+	background: var(--bg-000);
+	color: var(--ink);
+	font: var(--text-field) var(--font-sans);
+}
+
+.remember {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--space-2);
+	margin: var(--space-2) 0 var(--space-4);
+	font-size: var(--text-ui);
+	color: var(--ink-muted);
+	cursor: pointer;
+}
+
+.remember input {
+	accent-color: var(--accent);
+	margin: 2px 0 0;
+}
+
+.remember:has(input:disabled) {
+	opacity: 0.6;
+	cursor: default;
 }

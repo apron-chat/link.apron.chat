@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { parseLink } from '../src/link.js';
-import { appleAppSiteAssociation, assetLinks, blockedEntry, checkBlocklist, checkRegistry, detectPlatform, offersFor, unsupportedTransports, webUrl } from '../src/registry.js';
+import { appleAppSiteAssociation, assetLinks, autoOpen, blockedEntry, checkBlocklist, checkRegistry, checkWebAppUrl, customClient, detectPlatform, offersFor, unsupportedTransports, webUrl, withCustom } from '../src/registry.js';
 
 const registry = JSON.parse(readFileSync(new URL('../clients.json', import.meta.url), 'utf8'));
 const blocklist = JSON.parse(readFileSync(new URL('../blocked.json', import.meta.url), 'utf8'));
@@ -97,4 +97,48 @@ test('builds the app association files', () => {
 			target: { namespace: 'android_app', package_name: 'example.pocket', sha256_cert_fingerprints: native.android.sha256_cert_fingerprints }
 		}
 	]);
+});
+
+test('checks a self-hosted web app address', () => {
+	const ok = (/** @type {string} */ value) => /** @type {{ url: string }} */ (checkWebAppUrl(value, registry, [])).url;
+	assert.equal(ok('https://chat.acme.com'), 'https://chat.acme.com/');
+	assert.equal(ok('chat.acme.com/apron/'), 'https://chat.acme.com/apron/');
+	assert.equal(ok('http://localhost:5173/'), 'http://localhost:5173/');
+	for (const bad of ['http://chat.acme.com/', 'https://user:pw@chat.acme.com/', 'https://chat.acme.com/?x=1', 'https://chat.acme.com/#x', 'javascript:alert(1)//', 'https://', 'https://web.apron.chat']) {
+		assert.ok('problem' in checkWebAppUrl(bad, registry, []), bad);
+	}
+	assert.ok('problem' in checkWebAppUrl('https://chat.acme.com', registry, [{ url: 'https://chat.acme.com/', base: 'apron-web' }]), 'added already');
+});
+
+test('a self-hosted web app opens links in the format of the client it runs', () => {
+	const saved = [{ url: 'https://chat.acme.com/apron/', base: 'apron-web' }, { url: 'https://gone.example/', base: 'not-in-registry' }, { url: 'http://chat.acme.com/', base: 'apron-web' }];
+	const all = withCustom(registry, saved);
+	assert.deepEqual(all.clients.map((c) => c.id), ['custom:https://chat.acme.com/apron/', 'apron-web']);
+	assert.equal(customClient(saved[0], registry)?.custom, true);
+
+	const parsed = link('apron:?server=wss://chat.acme.com/ws&room=general&message=1724803200042');
+	assert.deepEqual(offersFor(parsed, all, 'desktop').map((o) => o.href), [
+		'https://chat.acme.com/apron/?server=wss%3A%2F%2Fchat.acme.com%2Fws&room=general#message=1724803200042',
+		'https://web.apron.chat/?server=wss%3A%2F%2Fchat.acme.com%2Fws&room=general#message=1724803200042'
+	]);
+	assert.equal(offersFor(parsed, all, 'desktop', 'apron-web')[0].client.id, 'apron-web', 'the default comes first');
+});
+
+test('only a web client is self-hostable', () => {
+	assert.ok(checkRegistry({ clients: [{ ...native, self_hostable: true }] }).some((p) => p.includes('self_hostable')));
+});
+
+test('a remembered choice opens public servers only', () => {
+	const all = withCustom(registry, [{ url: 'https://chat.acme.com/', base: 'apron-web' }]);
+	const mine = 'custom:https://chat.acme.com/';
+	const open = (/** @type {string} */ input, /** @type {string | undefined} */ preferred = mine, blocked = /** @type {any[]} */ ([])) => autoOpen(link(input), all, blocked, preferred)?.href;
+	assert.equal(autoOpen(link('apron:?server=wss://chat.example/ws'), all, [], undefined), undefined, 'no default');
+	assert.equal(open('apron:?server=wss://chat.example/ws&room=general'), 'https://chat.acme.com/?server=wss%3A%2F%2Fchat.example%2Fws&room=general');
+	assert.equal(open('apron:?server=wss://chat.example/ws', 'apron-web'), 'https://web.apron.chat/?server=wss%3A%2F%2Fchat.example%2Fws');
+	assert.equal(open('apron:?server=wss://chat.example/ws', 'custom:https://removed.example/'), undefined, 'default no longer there');
+	assert.equal(open('apron:?server=ws://localhost:8080/ws'), undefined, 'this device');
+	assert.equal(open('apron:?server=wss://nas.local/ws'), undefined, 'private network');
+	assert.equal(open('apron:?server=wss://chat.example/ws&server=wss://10.0.0.5/ws'), undefined, 'any private server');
+	assert.equal(open('apron:?server=webrtc:k2Fp9xQ'), undefined, 'no transport the default supports');
+	assert.equal(open('apron:?server=wss://chat.evil.example/', 'apron-web', [{ host: 'evil.example', reason: 'x' }]), undefined, 'blocked');
 });
