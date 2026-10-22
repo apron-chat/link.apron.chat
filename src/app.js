@@ -8,13 +8,17 @@
  * forbids the HTML sinks (Trusted Types), because a link chooses every value.
  */
 import { formatLink, formatParams, formatUri, messageTime, parseLink, parseLocation, visible } from './link.js';
-import { blockedEntry, detectPlatform, nativeStore, offersFor, unsupportedTransports } from './registry.js';
+import { blockedEntry, checkWebAppUrl, CUSTOM_PREFIX, detectPlatform, nativeStore, offersFor, selfHostable, unsupportedTransports, withCustom } from './registry.js';
 import { blocked, registry } from './data.js';
 
 /** @typedef {import('./link.js').Link} Link */
 /** @typedef {import('./link.js').Reason} Reason */
+/** @typedef {import('./registry.js').SavedWebApp} SavedWebApp */
 
+/** The id of the client chosen last: the default, offered first. */
 const PREFERRED_KEY = 'preferred-client';
+/** Self-hosted web clients the viewer added, as `SavedWebApp[]` in JSON. */
+const SAVED_KEY = 'web-apps';
 const REPOSITORY = 'https://github.com/apron-chat/link.apron.chat';
 const platform = detectPlatform(navigator);
 
@@ -54,12 +58,44 @@ function loadPreferred() {
 	}
 }
 
-function savePreferred(/** @type {string} */ id) {
+function savePreferred(/** @type {string | undefined} */ id) {
 	try {
-		localStorage.setItem(PREFERRED_KEY, id);
+		if (id) localStorage.setItem(PREFERRED_KEY, id);
+		else localStorage.removeItem(PREFERRED_KEY);
 	} catch {
 		// Storage can be off (private windows, blocked site data); the choice is a convenience.
 	}
+}
+
+/** @returns {SavedWebApp[]} */
+function loadSaved() {
+	try {
+		const saved = JSON.parse(localStorage.getItem(SAVED_KEY) ?? '[]');
+		return Array.isArray(saved) ? saved.filter((app) => typeof app?.url === 'string' && typeof app?.base === 'string') : [];
+	} catch {
+		return [];
+	}
+}
+
+/** Saves the list; false when this browser keeps no site data. */
+function storeSaved(/** @type {SavedWebApp[]} */ saved) {
+	try {
+		localStorage.setItem(SAVED_KEY, JSON.stringify(saved));
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+/** A web client's address, short: its host, and its path when it has one. */
+function where(/** @type {string} */ address) {
+	const url = new URL(address);
+	return url.pathname === '/' ? url.host : `${url.host}${url.pathname.replace(/\/$/, '')}`;
+}
+
+/** The registry, with the web clients this viewer added first. */
+function allClients() {
+	return withCustom(registry, loadSaved());
 }
 
 function render() {
@@ -95,13 +131,17 @@ function linkView(link) {
 	if (network === 'loopback') card.append(notice('warn', 'This link points at a server on your own device. Open it only if you expected it: a local server can run tools and code for you.'));
 	else if (network === 'private') card.append(notice('warn', 'This link points at a server on a private network, such as a home or office network.'));
 
-	const offers = offersFor(link, registry, platform, loadPreferred());
+	const clients = allClients();
+	const preferred = loadPreferred();
+	const offers = offersFor(link, clients, platform, preferred);
 	const actions = h('div', { class: 'actions' });
 	offers.forEach((offer, index) => {
 		// No highlighted button for a local server: opening one should be a choice, not a reflex.
 		const primary = index === 0 && offer.kind === 'web' && !network;
 		const label = offer.kind === 'web' ? `Open in ${offer.client.name}` : `Get ${offer.client.name}`;
-		const button = h('a', { class: primary ? 'button primary' : 'button', href: offer.href, rel: 'noopener noreferrer' }, h('span', {}, label), h('span', { class: 'button-meta' }, new URL(offer.href).host));
+		const host = offer.kind === 'web' && offer.client.web ? where(offer.client.web.url) : new URL(offer.href).host;
+		const meta = offer.kind === 'web' && offer.client.id === preferred ? `${host} · default` : host;
+		const button = h('a', { class: primary ? 'button primary' : 'button', href: offer.href, rel: 'noopener noreferrer' }, h('span', {}, label), h('span', { class: 'button-meta' }, meta));
 		if (offer.kind === 'web') button.addEventListener('click', () => savePreferred(offer.client.id));
 		actions.append(button);
 	});
@@ -110,10 +150,13 @@ function linkView(link) {
 	}
 	if (offers.length) card.append(actions);
 	else {
-		const missing = unsupportedTransports(link, registry);
+		const missing = unsupportedTransports(link, clients);
 		card.append(notice('info', missing.length ? `No Apron app listed here supports ${missing.join(', ')} yet. Copy the link into an app that does.` : 'No Apron app listed here can open this link yet.'));
 	}
 
+	if (selfHostable(registry).length) {
+		card.append(h('details', { class: 'add-app' }, h('summary', {}, `Use your own ${selfHostable(registry)[0].name}`), webAppForm(render)));
+	}
 	card.append(h('p', { class: 'caution' }, 'An Apron server controls everything you see on it, including names and sign-in pages. Open links only to servers you trust.'));
 	card.append(copyRow(link));
 	return card;
@@ -198,8 +241,68 @@ function landingView() {
 		h('h2', {}, 'Apron apps'),
 		apps,
 		h('p', { class: 'muted' }, 'Making an Apron app? ', h('a', { href: `${REPOSITORY}#adding-a-client` }, 'Add it to this list'), '.'),
+		defaultsView(),
 		pasteForm()
 	);
+}
+
+/**
+ * The web clients links open in, to pick the default and to add or remove
+ * the viewer's own. Kept in this browser only.
+ */
+function defaultsView() {
+	const preferred = loadPreferred();
+	const list = h('ul', { class: 'choices' });
+	for (const client of allClients().clients) {
+		if (!client.web) continue;
+		const radio = /** @type {HTMLInputElement} */ (h('input', { type: 'radio', name: 'default', value: client.id }));
+		radio.checked = client.id === preferred;
+		radio.addEventListener('change', () => savePreferred(client.id));
+		const item = h('li', {}, h('label', {}, radio, h('span', { class: 'app-name' }, client.name), h('span', { class: 'app-host' }, where(client.web.url))));
+		if (client.custom) {
+			const remove = h('button', { type: 'button', class: 'link-button' }, 'Remove');
+			remove.addEventListener('click', () => {
+				storeSaved(loadSaved().filter((app) => `${CUSTOM_PREFIX}${app.url}` !== client.id));
+				if (loadPreferred() === client.id) savePreferred(undefined);
+				render();
+			});
+			item.append(remove);
+		}
+		list.append(item);
+	}
+	const section = h('section', { class: 'defaults' }, h('h2', {}, 'Open links with'), h('p', { class: 'muted' }, 'Your choice is the first one offered for every link. It stays in this browser.'), list);
+	if (selfHostable(registry).length) section.append(webAppForm(render));
+	return section;
+}
+
+/**
+ * Adds a self-hosted web client: its address, saved in this browser, and
+ * made the default. Only the viewer adds one; a link never can (SPEC.md §7).
+ * @param {() => void} added
+ */
+function webAppForm(added) {
+	const bases = selfHostable(registry);
+	const input = /** @type {HTMLInputElement} */ (h('input', { type: 'text', inputmode: 'url', name: 'web-app', placeholder: 'https://chat.example.com/', autocomplete: 'url', spellcheck: 'false', 'aria-label': 'Address of your web app' }));
+	const select = bases.length > 1 ? /** @type {HTMLSelectElement} */ (h('select', { 'aria-label': 'Which app it runs' }, ...bases.map((base) => h('option', { value: base.id }, base.name)))) : undefined;
+	const error = h('p', { class: 'form-error', 'aria-live': 'polite' });
+	const label = bases.length > 1 ? 'Host your own Apron web app? Add its address.' : `Host your own ${bases[0].name}? Add its address.`;
+	const form = h('form', { class: 'paste' }, h('label', {}, label), h('div', { class: 'paste-row' }, input, select, h('button', { type: 'submit', class: 'button' }, 'Add')), error);
+	form.addEventListener('submit', (event) => {
+		event.preventDefault();
+		const saved = loadSaved();
+		const checked = checkWebAppUrl(input.value, registry, saved);
+		if ('problem' in checked) {
+			error.textContent = checked.problem;
+			return;
+		}
+		if (!storeSaved([...saved, { url: checked.url, base: select?.value ?? bases[0].id }])) {
+			error.textContent = "This browser isn't keeping data for this site (a private window, or site data blocked), so it can't remember the app.";
+			return;
+		}
+		savePreferred(`${CUSTOM_PREFIX}${checked.url}`);
+		added();
+	});
+	return form;
 }
 
 function pasteForm() {

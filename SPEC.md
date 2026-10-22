@@ -156,7 +156,17 @@ what the link refers to, and offers the clients that can open it.
 - The page shows the server's host first, before any value that the link
   chooses.
 - The page builds each client's address from the client's entry in the
-  registry. It never takes an address from the link.
+  registry, or from a web client that the viewer added on the page. It never
+  takes an address from the link.
+- A viewer MAY add the address of a self-hosted copy of a web client that the
+  registry marks `self_hostable`. The page opens links there in that
+  client's format.
+- Only the viewer adds a web client, on the page itself. A link MUST NOT add
+  one, or choose the default. (A link that could would send its readers to an
+  attacker's copy of a web client, to collect their passwords.)
+- The page keeps the viewer's default client and added web clients in the
+  browser only. The default is offered first. The page still does not open it
+  by itself.
 - The page loads no script, style, or image from another origin.
 - The page removes a link with a `token` key from the address bar, and does
   not offer it to any client.

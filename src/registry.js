@@ -5,6 +5,8 @@
  * built from them. Pure functions, shared by the page, the build and the tests.
  */
 
+import { networkOf } from './link.js';
+
 /** @typedef {import('./link.js').Link} Link */
 /** @typedef {import('./link.js').Server} Server */
 
@@ -24,12 +26,15 @@
  * @property {string} [source]
  * @property {string[]} transports the `server` transports it can open
  * @property {WebOpen} [web]
+ * @property {boolean} [self_hostable] whether other hosts serve this web client, with the same `web` format
+ * @property {boolean} [custom] added by the viewer on this page, not from the registry
  * @property {{ app_ids: string[], store?: string }} [ios]
  * @property {{ package: string, sha256_cert_fingerprints: string[], store?: string }} [android]
  * @property {{ download: string }} [desktop]
  */
 
 /** @typedef {{ clients: Client[] }} Registry */
+/** @typedef {{ url: string, base: string }} SavedWebApp a self-hosted web client that the viewer added: its address, and the registry client it runs */
 /** @typedef {{ host: string, reason: string }} Blocked */
 /** @typedef {'ios' | 'android' | 'desktop'} Platform */
 
@@ -41,7 +46,10 @@
 
 /** Link keys a web client can take. */
 const LINK_KEYS = ['server', 'room', 'thread', 'message'];
-const CLIENT_KEYS = ['id', 'name', 'description', 'homepage', 'source', 'transports', 'web', 'ios', 'android', 'desktop'];
+const CLIENT_KEYS = ['id', 'name', 'description', 'homepage', 'source', 'transports', 'web', 'self_hostable', 'ios', 'android', 'desktop'];
+
+/** The id prefix of a web client that the viewer added. */
+export const CUSTOM_PREFIX = 'custom:';
 
 /**
  * Checks the registry. Returns the problems found, empty when there are none.
@@ -92,6 +100,7 @@ export function checkRegistry(data) {
 				if (new Set(mapped).size !== mapped.length) problem('web: a link key is passed twice');
 			}
 		}
+		if (client.self_hostable !== undefined && (typeof client.self_hostable !== 'boolean' || !client.web)) problem('self_hostable: true or false, and only for a web client');
 		if (client.ios !== undefined) {
 			const ios = client.ios;
 			if (!isObject(ios)) problem('ios: expected an object');
@@ -228,6 +237,74 @@ export function webUrl(web, link, server) {
 	}
 	url.hash = fragment.toString();
 	return url.toString();
+}
+
+/**
+ * The registry's web clients that other hosts can serve.
+ * @param {Registry} registry
+ */
+export function selfHostable(registry) {
+	return registry.clients.filter((client) => client.web && client.self_hostable);
+}
+
+/**
+ * Checks the address of a self-hosted web client that the viewer types in:
+ * an https URL, or http on this device, with no credentials, query or
+ * fragment. Returns the address, normalized, or the problem.
+ * @param {string} value
+ * @param {Registry} registry
+ * @param {SavedWebApp[]} saved the ones added already
+ * @returns {{ url: string } | { problem: string }}
+ */
+export function checkWebAppUrl(value, registry, saved) {
+	const text = value.trim();
+	let url;
+	try {
+		// An address typed without a scheme, such as `chat.example.com`, is https.
+		url = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(text) ? text : `https://${text}`);
+	} catch {
+		return { problem: 'Enter the full address, starting with https://.' };
+	}
+	const local = networkOf(url.hostname) === 'loopback';
+	if (url.protocol !== 'https:' && !(url.protocol === 'http:' && local)) return { problem: 'The address must start with https:// (http:// only for localhost).' };
+	if (url.username || url.password) return { problem: "The address can't contain a user name or password." };
+	if (url.search || url.hash) return { problem: "The address can't contain ? or #. Enter the address that opens the app." };
+	const normalized = url.toString();
+	if (registry.clients.some((client) => client.web && new URL(client.web.url).toString() === normalized)) return { problem: 'That app is already in the list.' };
+	if (saved.some((app) => app.url === normalized)) return { problem: "You've added that address already." };
+	return { url: normalized };
+}
+
+/**
+ * A self-hosted web client as a client: the registry client it runs, at the
+ * viewer's address. Undefined when that client is gone from the registry, or
+ * the saved address no longer passes its check.
+ * @param {SavedWebApp} saved
+ * @param {Registry} registry
+ * @returns {Client | undefined}
+ */
+export function customClient(saved, registry) {
+	const base = selfHostable(registry).find((client) => client.id === saved.base);
+	if (!base?.web || 'problem' in checkWebAppUrl(saved.url, registry, [])) return undefined;
+	return {
+		id: `${CUSTOM_PREFIX}${saved.url}`,
+		name: base.name,
+		homepage: saved.url,
+		transports: base.transports,
+		web: { ...base.web, url: saved.url },
+		custom: true
+	};
+}
+
+/**
+ * The registry with the viewer's own web clients first.
+ * @param {Registry} registry
+ * @param {SavedWebApp[]} saved
+ * @returns {Registry}
+ */
+export function withCustom(registry, saved) {
+	const custom = saved.map((app) => customClient(app, registry)).filter((client) => client !== undefined);
+	return { clients: [...custom, ...registry.clients] };
 }
 
 /**
