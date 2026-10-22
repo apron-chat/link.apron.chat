@@ -1,0 +1,17 @@
+{
+	"clients": [
+		{
+			"id": "apron-web",
+			"name": "Apron Web",
+			"description": "The reference web client.",
+			"homepage": "https://web.apron.chat/",
+			"source": "https://github.com/apron-chat/apron-web",
+			"transports": ["wss", "ws"],
+			"web": {
+				"url": "https://web.apron.chat/",
+				"query": { "server": "server", "room": "room", "thread": "thread" },
+				"fragment": { "message": "message" }
+			}
+		}
+	]
+}

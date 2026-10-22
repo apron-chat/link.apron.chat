@@ -1,0 +1,15 @@
+{
+	"name": "link.apron.chat",
+	"private": true,
+	"version": "0.0.1",
+	"type": "module",
+	"description": "Client-agnostic links to Apron servers, rooms and messages.",
+	"engines": {
+		"node": ">=22"
+	},
+	"scripts": {
+		"build": "node scripts/build.mjs",
+		"dev": "node scripts/serve.mjs",
+		"test": "node --test"
+	}
+}

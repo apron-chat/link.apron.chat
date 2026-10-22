@@ -1,0 +1,364 @@
+/* Apron's design tokens (apron-web src/lib/design/tokens.css), the ones this page uses.
+   Dark is the reference theme; light is its equal. Accent (rust) is what you can do. */
+:root {
+	color-scheme: dark light;
+	--bg-000: #10101a;
+	--bg-100: #15151f;
+	--bg-200: #1d1d29;
+	--bg-300: #282835;
+	--line: #2a2a38;
+	--line-strong: #6d6d80;
+	--ink: #ece9e4;
+	--ink-muted: #a8a6b2;
+	--accent: #f28a3c;
+	--on-accent: #1c0f07;
+	--accent-soft: #3a2820;
+	--denim: #8fb0f5;
+	--danger: #ff6f86;
+	--warn: #d6b24c;
+	--font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+	--font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+	--text-sm: 12px;
+	--text-ui: 13px;
+	--text-field: 14px;
+	--text-body: 15px;
+	--text-title: 18px;
+	--text-field-ios: 16px;
+	--space-1: 4px;
+	--space-2: 8px;
+	--space-3: 12px;
+	--space-4: 16px;
+	--space-6: 24px;
+	--space-8: 32px;
+	--radius-sm: 6px;
+	--radius-md: 10px;
+	--radius-lg: 16px;
+}
+
+@media (prefers-color-scheme: light) {
+	:root {
+		--bg-000: #ebe8e3;
+		--bg-100: #f8f6f3;
+		--bg-200: #f0ede8;
+		--bg-300: #e3dfd8;
+		--line: #dfdad2;
+		--line-strong: #7c776f;
+		--ink: #1c1f33;
+		--ink-muted: #5b5d6c;
+		--accent: #a83c14;
+		--on-accent: #ffffff;
+		--accent-soft: #f6e1d0;
+		--denim: #2c56b6;
+		--danger: #b0173f;
+		--warn: #7a5a00;
+	}
+}
+
+* {
+	box-sizing: border-box;
+}
+
+html {
+	-webkit-text-size-adjust: 100%;
+}
+
+body {
+	margin: 0;
+	min-height: 100vh;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	padding: var(--space-6) var(--space-4);
+	background: var(--bg-000);
+	color: var(--ink);
+	font: var(--text-body) / 1.5 var(--font-sans);
+}
+
+a {
+	color: var(--denim);
+}
+
+code,
+pre {
+	font-family: var(--font-mono);
+	font-size: 0.92em;
+}
+
+:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+
+main {
+	width: 100%;
+	max-width: 520px;
+}
+
+/* Focused on each new link, for screen readers; it isn't a control. */
+main:focus,
+main:focus-visible {
+	outline: none;
+}
+
+.brand {
+	width: 100%;
+	max-width: 520px;
+	margin-bottom: var(--space-4);
+}
+
+.brand-link {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-2);
+	color: var(--ink);
+	font-weight: 600;
+	text-decoration: none;
+}
+
+.card {
+	background: var(--bg-100);
+	border: 1px solid var(--line);
+	border-radius: var(--radius-lg);
+	padding: var(--space-6);
+}
+
+.card > :first-child {
+	margin-top: 0;
+}
+
+.card > :last-child {
+	margin-bottom: 0;
+}
+
+h1 {
+	font-size: var(--text-title);
+	line-height: 1.3;
+	margin: 0 0 var(--space-4);
+}
+
+h2 {
+	font-size: var(--text-body);
+	margin: var(--space-6) 0 var(--space-2);
+}
+
+p {
+	margin: var(--space-3) 0;
+}
+
+.muted,
+.caution {
+	color: var(--ink-muted);
+	font-size: var(--text-ui);
+}
+
+/* What the link refers to. The server's host leads: a link chooses everything else on the page. */
+.destination {
+	margin: 0 0 var(--space-4);
+	background: var(--bg-200);
+	border-radius: var(--radius-md);
+	padding: var(--space-1) var(--space-4);
+}
+
+.row {
+	display: grid;
+	grid-template-columns: 72px minmax(0, 1fr);
+	gap: var(--space-3);
+	padding: var(--space-3) 0;
+}
+
+.row + .row {
+	border-top: 1px solid var(--line);
+}
+
+dt {
+	color: var(--ink-muted);
+	font-size: var(--text-sm);
+	padding-top: 2px;
+}
+
+dd {
+	margin: 0;
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.host {
+	font-family: var(--font-mono);
+	font-size: var(--text-title);
+	font-weight: 600;
+	line-height: 1.3;
+}
+
+.url,
+.id {
+	display: block;
+	color: var(--ink-muted);
+	font-family: var(--font-mono);
+	font-size: var(--text-sm);
+}
+
+.notice {
+	border-radius: var(--radius-md);
+	padding: var(--space-3) var(--space-4);
+	font-size: var(--text-field);
+	border: 1px solid var(--line-strong);
+}
+
+.notice.warn {
+	border-color: var(--warn);
+}
+
+.notice.danger {
+	border-color: var(--danger);
+}
+
+.actions {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+	margin: var(--space-4) 0;
+}
+
+.button {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-3);
+	min-height: 44px;
+	padding: var(--space-2) var(--space-4);
+	border: 1px solid var(--line-strong);
+	border-radius: var(--radius-md);
+	background: var(--bg-200);
+	color: var(--ink);
+	font: 600 var(--text-field) / 1.3 var(--font-sans);
+	text-decoration: none;
+	cursor: pointer;
+}
+
+.button:hover {
+	background: var(--bg-300);
+}
+
+.button.primary {
+	background: var(--accent);
+	border-color: var(--accent);
+	color: var(--on-accent);
+}
+
+.button.primary:hover {
+	filter: brightness(1.08);
+}
+
+.button-meta {
+	font-family: var(--font-mono);
+	font-size: var(--text-sm);
+	font-weight: 400;
+	opacity: 0.8;
+}
+
+.copy {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-4);
+	margin-top: var(--space-4);
+}
+
+.link-button {
+	padding: 0;
+	border: 0;
+	background: none;
+	color: var(--denim);
+	font: var(--text-ui) var(--font-sans);
+	cursor: pointer;
+}
+
+.link-button:hover {
+	text-decoration: underline;
+}
+
+.example {
+	background: var(--bg-200);
+	border-radius: var(--radius-md);
+	padding: var(--space-3) var(--space-4);
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	font-size: var(--text-sm);
+}
+
+.apps {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.apps li {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-1) var(--space-3);
+	align-items: baseline;
+	padding: var(--space-2) 0;
+}
+
+.app-name {
+	font-weight: 600;
+}
+
+.app-description {
+	color: var(--ink-muted);
+	font-size: var(--text-ui);
+}
+
+.paste {
+	margin-top: var(--space-6);
+	padding-top: var(--space-4);
+	border-top: 1px solid var(--line);
+}
+
+.paste label {
+	display: block;
+	font-size: var(--text-ui);
+	color: var(--ink-muted);
+	margin-bottom: var(--space-2);
+}
+
+.paste-row {
+	display: flex;
+	gap: var(--space-2);
+}
+
+.paste input {
+	flex: 1;
+	min-width: 0;
+	min-height: 44px;
+	padding: var(--space-2) var(--space-3);
+	border: 1px solid var(--line-strong);
+	border-radius: var(--radius-md);
+	background: var(--bg-000);
+	color: var(--ink);
+	font: var(--text-field) var(--font-mono);
+}
+
+/* iOS zooms into any field under 16px as it takes focus. */
+@supports (-webkit-touch-callout: none) {
+	.paste input {
+		font-size: var(--text-field-ios);
+	}
+}
+
+.form-error {
+	color: var(--danger);
+	font-size: var(--text-ui);
+	min-height: 1.5em;
+	margin-bottom: 0;
+}
+
+.footer {
+	display: flex;
+	gap: var(--space-4);
+	margin-top: var(--space-6);
+	font-size: var(--text-ui);
+}
+
+.footer a {
+	color: var(--ink-muted);
+}
