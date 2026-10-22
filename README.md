@@ -87,8 +87,12 @@ A client in the registry agrees to follow [SPEC.md §6](SPEC.md#6-clients):
 Set `self_hostable` when people run their own copies of your web client at
 other addresses, as with Apron Web. Viewers can then add their copy's address
 on the page, under "Open links with" or "Use your own Apron Web", and links
-open there in your `web` format. The page keeps added copies, and the
-viewer's default app, in the browser's localStorage.
+open there in your `web` format. The page keeps added copies, the viewer's
+default app, and "Remember my choice" in the browser's localStorage.
+
+With "Remember my choice", links open in the default web app without the
+page asking. Links to a blocked server, or to one on the viewer's device or
+private network, still show the page. Turn it off on https://link.apron.chat/.
 
 The page offers a native app's store link on its platform. It also offers
 "Open in an installed app", which opens the `apron:` URI, when any app in

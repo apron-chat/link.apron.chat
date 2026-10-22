@@ -240,6 +240,25 @@ export function webUrl(web, link, server) {
 }
 
 /**
+ * Where to open a link without asking, when the viewer chose "Remember my
+ * choice": their default web client, if it can open the link. Never for a
+ * blocked server, or one on this device or a private network: those always
+ * show the page first.
+ * @param {Link} link
+ * @param {Registry} registry with the viewer's own web clients
+ * @param {Blocked[]} blocked
+ * @param {string | undefined} preferred the default client's id
+ * @returns {{ client: Client, href: string } | undefined}
+ */
+export function autoOpen(link, registry, blocked, preferred) {
+	const client = registry.clients.find((c) => c.id === preferred);
+	if (!client?.web || blockedEntry(link, blocked)) return undefined;
+	const server = serverFor(client, link);
+	if (!server || link.servers.some((s) => s.network)) return undefined;
+	return { client, href: webUrl(client.web, link, server) };
+}
+
+/**
  * The registry's web clients that other hosts can serve.
  * @param {Registry} registry
  */

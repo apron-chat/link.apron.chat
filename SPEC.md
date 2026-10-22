@@ -152,7 +152,16 @@ what the link refers to, and offers the clients that can open it.
 
 - The site has no server code. Its host never receives a link.
 - The page only offers. It MUST NOT open a client, or navigate away, by
-  itself.
+  itself, except for a remembered choice.
+- A viewer MAY choose "Remember my choice". The page then opens links in the
+  viewer's default web client without asking, when all of these are true:
+  - The default can open one of the link's servers.
+  - No server of the link is on the blocklist.
+  - No server of the link is on a loopback host or a private network.
+- The page opens a remembered choice by replacing its own history entry, so
+  that going back does not open the client again.
+- The page where the viewer turns off "Remember my choice" never opens a
+  client by itself.
 - The page shows the server's host first, before any value that the link
   chooses.
 - The page builds each client's address from the client's entry in the
@@ -164,9 +173,8 @@ what the link refers to, and offers the clients that can open it.
 - Only the viewer adds a web client, on the page itself. A link MUST NOT add
   one, or choose the default. (A link that could would send its readers to an
   attacker's copy of a web client, to collect their passwords.)
-- The page keeps the viewer's default client and added web clients in the
-  browser only. The default is offered first. The page still does not open it
-  by itself.
+- The page keeps the viewer's default client, the remembered choice, and
+  added web clients in the browser only. The default is offered first.
 - The page loads no script, style, or image from another origin.
 - The page removes a link with a `token` key from the address bar, and does
   not offer it to any client.
@@ -211,6 +219,11 @@ exist because of these threats:
   and takes client addresses from the registry only. A script from another
   origin could read the fragment, so the page loads none, and has no
   analytics.
+- **Remembered choices.** With "Remember my choice", the viewer does not see
+  the server on this page before the client connects. So the client's own
+  confirmation before a new server ([§6](#6-clients)) is the only check.
+  Servers on the viewer's own device or network always show the page,
+  because of the threat to local servers above.
 - **The registry.** Whoever can change the registry or the app association
   files decides which apps receive Apron links on phones. On iOS, an app in
   the association file can take links with no choice shown to the user.

@@ -8,7 +8,7 @@
  * forbids the HTML sinks (Trusted Types), because a link chooses every value.
  */
 import { formatLink, formatParams, formatUri, messageTime, parseLink, parseLocation, visible } from './link.js';
-import { blockedEntry, checkWebAppUrl, CUSTOM_PREFIX, detectPlatform, nativeStore, offersFor, selfHostable, unsupportedTransports, withCustom } from './registry.js';
+import { autoOpen, blockedEntry, checkWebAppUrl, CUSTOM_PREFIX, detectPlatform, nativeStore, offersFor, selfHostable, unsupportedTransports, withCustom } from './registry.js';
 import { blocked, registry } from './data.js';
 
 /** @typedef {import('./link.js').Link} Link */
@@ -17,6 +17,8 @@ import { blocked, registry } from './data.js';
 
 /** The id of the client chosen last: the default, offered first. */
 const PREFERRED_KEY = 'preferred-client';
+/** Set when the viewer chose "Remember my choice": links open in the default without asking. */
+const REMEMBER_KEY = 'remember-choice';
 /** Self-hosted web clients the viewer added, as `SavedWebApp[]` in JSON. */
 const SAVED_KEY = 'web-apps';
 const REPOSITORY = 'https://github.com/apron-chat/link.apron.chat';
@@ -67,6 +69,23 @@ function savePreferred(/** @type {string | undefined} */ id) {
 	}
 }
 
+function loadRemember() {
+	try {
+		return localStorage.getItem(REMEMBER_KEY) === '1';
+	} catch {
+		return false;
+	}
+}
+
+function saveRemember(/** @type {boolean} */ remember) {
+	try {
+		if (remember) localStorage.setItem(REMEMBER_KEY, '1');
+		else localStorage.removeItem(REMEMBER_KEY);
+	} catch {
+		// As with the default: without storage, the page asks each time.
+	}
+}
+
 /** @returns {SavedWebApp[]} */
 function loadSaved() {
 	try {
@@ -112,6 +131,13 @@ function render() {
 	} else {
 		const canonical = `/#${formatParams(parsed.link)}`;
 		if (location.pathname + location.search + location.hash !== canonical) history.replaceState(null, '', canonical);
+		const auto = loadRemember() ? autoOpen(parsed.link, allClients(), blocked, loadPreferred()) : undefined;
+		if (auto) {
+			// Replaced, not pushed: Back then skips this page instead of opening the app again.
+			main.replaceChildren(openingView(auto.client.name, auto.href));
+			location.replace(auto.href);
+			return;
+		}
 		main.replaceChildren(linkView(parsed.link));
 	}
 	main.focus({ preventScroll: true });
@@ -135,6 +161,8 @@ function linkView(link) {
 	const preferred = loadPreferred();
 	const offers = offersFor(link, clients, platform, preferred);
 	const actions = h('div', { class: 'actions' });
+	const remember = /** @type {HTMLInputElement} */ (h('input', { type: 'checkbox', name: 'remember' }));
+	remember.checked = loadRemember();
 	offers.forEach((offer, index) => {
 		// No highlighted button for a local server: opening one should be a choice, not a reflex.
 		const primary = index === 0 && offer.kind === 'web' && !network;
@@ -142,13 +170,24 @@ function linkView(link) {
 		const host = offer.kind === 'web' && offer.client.web ? where(offer.client.web.url) : new URL(offer.href).host;
 		const meta = offer.kind === 'web' && offer.client.id === preferred ? `${host} · default` : host;
 		const button = h('a', { class: primary ? 'button primary' : 'button', href: offer.href, rel: 'noopener noreferrer' }, h('span', {}, label), h('span', { class: 'button-meta' }, meta));
-		if (offer.kind === 'web') button.addEventListener('click', () => savePreferred(offer.client.id));
+		if (offer.kind === 'web') {
+			button.addEventListener('click', () => {
+				savePreferred(offer.client.id);
+				saveRemember(remember.checked);
+			});
+		}
 		actions.append(button);
 	});
 	if (registry.clients.some((client) => nativeStore(client, platform))) {
 		actions.append(h('a', { class: 'button', href: formatUri(link) }, h('span', {}, 'Open in an installed app'), h('span', { class: 'button-meta' }, 'apron:')));
 	}
-	if (offers.length) card.append(actions);
+	if (offers.length) {
+		card.append(actions);
+		// A local or private server always shows this page, so remembering doesn't apply to it.
+		if (offers.some((offer) => offer.kind === 'web') && !network) {
+			card.append(h('label', { class: 'remember' }, remember, h('span', {}, 'Remember my choice, and open links in it without asking')));
+		}
+	}
 	else {
 		const missing = unsupportedTransports(link, clients);
 		card.append(notice('info', missing.length ? `No Apron app listed here supports ${missing.join(', ')} yet. Copy the link into an app that does.` : 'No Apron app listed here can open this link yet.'));
@@ -270,9 +309,32 @@ function defaultsView() {
 		}
 		list.append(item);
 	}
-	const section = h('section', { class: 'defaults' }, h('h2', {}, 'Open links with'), h('p', { class: 'muted' }, 'Your choice is the first one offered for every link. It stays in this browser.'), list);
+	const remember = /** @type {HTMLInputElement} */ (h('input', { type: 'checkbox', name: 'remember' }));
+	remember.checked = loadRemember();
+	remember.disabled = !preferred;
+	remember.addEventListener('change', () => saveRemember(remember.checked));
+	const section = h(
+		'section',
+		{ class: 'defaults' },
+		h('h2', {}, 'Open links with'),
+		h('p', { class: 'muted' }, 'Your choice is the first one offered for every link. It stays in this browser.'),
+		list,
+		h('label', { class: 'remember' }, remember, h('span', {}, 'Open links in my choice without asking. Links to servers on this device or a private network still ask.'))
+	);
+	// Remembering needs a default to remember.
+	list.addEventListener('change', () => (remember.disabled = !loadPreferred()));
 	if (selfHostable(registry).length) section.append(webAppForm(render));
 	return section;
+}
+
+/** Shown for the moment before a remembered choice opens. */
+function openingView(/** @type {string} */ name, /** @type {string} */ href) {
+	return h(
+		'section',
+		{ class: 'card' },
+		h('h1', {}, `Opening in ${name}…`),
+		h('p', { class: 'muted' }, h('a', { href, rel: 'noopener noreferrer' }, new URL(href).host), '. To choose again, turn off "Remember my choice" on ', h('a', { href: '/' }, 'link.apron.chat'), '.')
+	);
 }
 
 /**
