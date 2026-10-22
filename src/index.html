@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Apron link</title>
+	<meta name="description" content="Open an Apron server, room or message in whichever Apron app you use.">
+	<meta property="og:title" content="Apron link">
+	<meta property="og:description" content="Open this in whichever Apron app you use.">
+	<meta property="og:site_name" content="Apron">
+	<meta name="theme-color" content="#15151f" media="(prefers-color-scheme: dark)">
+	<meta name="theme-color" content="#f8f6f3" media="(prefers-color-scheme: light)">
+	<link rel="icon" href="/logo.svg" type="image/svg+xml">
+	<link rel="stylesheet" href="/style.css">
+	<script type="module" src="/app.js"></script>
+</head>
+<body>
+	<header class="brand">
+		<a href="/" class="brand-link"><img src="/logo.svg" alt="" width="28" height="28"><span>Apron</span></a>
+	</header>
+	<main id="app" tabindex="-1">
+		<noscript>
+			<section class="card">
+				<h1>Apron link</h1>
+				<p>This page needs JavaScript to read the link, which stays in your browser after the <code>#</code>. Without it, copy the address and replace <code>https://link.apron.chat/#</code> with <code>apron:?</code> to open it in an installed Apron app.</p>
+			</section>
+		</noscript>
+	</main>
+	<footer class="footer">
+		<a href="https://github.com/apron-chat/link.apron.chat/blob/main/SPEC.md">How Apron links work</a>
+		<a href="https://github.com/apron-chat/link.apron.chat">Source</a>
+	</footer>
+</body>
+</html>

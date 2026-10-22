@@ -1,0 +1,16 @@
+name = "link-apron-chat"
+compatibility_date = "2026-10-15"
+workers_dev = false
+# Production is served only on the custom domain below. Pull request
+# Previews (Workers Builds) are served at <branch>-link-apron-chat.shazow.workers.dev.
+preview_urls = true
+previews = { }
+routes = [
+  { pattern = "link.apron.chat", custom_domain = true }
+]
+# Static assets only: there is no `main`, so no Worker code runs. Links stay in
+# the URL fragment and never reach the server. test/static.test.mjs keeps it so.
+
+[assets]
+directory = "./build"
+not_found_handling = "404-page"
