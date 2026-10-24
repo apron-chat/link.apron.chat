@@ -72,6 +72,7 @@ test('a sign-in link keeps its token in the fragment, and names its server', () 
 	assert.deepEqual(parseLink('https://link.apron.chat/#token=x&state=y'), { kind: 'invalid', reason: 'sign-in-without-server' });
 	assert.deepEqual(parseLink('apron:?server=wss://chat.example/&token=a&token=b'), { kind: 'invalid', reason: 'duplicate-key', detail: 'token' });
 	assert.deepEqual(parseLink('apron:?server=wss://chat.example/&token=a&state=b&state=c'), { kind: 'invalid', reason: 'duplicate-key', detail: 'state' });
+	assert.deepEqual(parseLink('apron:?server=wss://chat.example/&server=wss://evil.example/&token=a'), { kind: 'invalid', reason: 'duplicate-key', detail: 'server' }, 'a token is for one server');
 });
 
 test('finds a credential in any address, valid link or not', () => {

@@ -77,8 +77,8 @@ https://link.apron.chat/#server=wss://chat.example/ws&token=Hk41x9…&state=q8Rz
 - `token` is the only credential key. Readers treat a key as a credential
   only when this document says so.
 - A sign-in link names one `server`: the server that the token is for. A
-  reader MUST refuse a sign-in link without `server`, or with `token` or
-  `state` more than once.
+  reader MUST refuse a sign-in link without `server`, or with `server`,
+  `token` or `state` more than once.
 - Credential keys go in the URL fragment only. A reader MUST refuse a
   link.apron.chat URL with a credential key in its query: its host has
   already received the token.

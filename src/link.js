@@ -106,7 +106,10 @@ export function parseParams(params) {
 	}
 
 	const values = params.getAll('server');
-	if (values.length === 0) return { kind: 'invalid', reason: CREDENTIAL_KEYS.some((key) => params.has(key)) ? 'sign-in-without-server' : 'no-server' };
+	const signIn = CREDENTIAL_KEYS.some((key) => params.has(key));
+	if (values.length === 0) return { kind: 'invalid', reason: signIn ? 'sign-in-without-server' : 'no-server' };
+	// A token is for one server: a client offered two could take it to the other one (SPEC.md §2.1).
+	if (signIn && values.length > 1) return { kind: 'invalid', reason: 'duplicate-key', detail: 'server' };
 	/** @type {Server[]} */
 	const servers = [];
 	for (const value of values) {
