@@ -50,6 +50,23 @@ test('opens apron-web with its own address format', () => {
 	assert.equal(webUrl(web.web, room, room.servers[0]), 'https://web.apron.chat/?server=wss%3A%2F%2Fchat.example%2Fws&room=general');
 });
 
+test('passes the keys it does not use on, in the fragment only', () => {
+	const web = registry.clients.find((/** @type {any} */ c) => c.id === 'apron-web');
+	const signIn = link('https://link.apron.chat/#server=wss://chat.example/ws&token=Hk41%2Bx9&state=q8Rz');
+	assert.equal(webUrl(web.web, signIn, signIn.servers[0]), 'https://web.apron.chat/?server=wss%3A%2F%2Fchat.example%2Fws#token=Hk41%2Bx9&state=q8Rz');
+	const message = link('apron:?server=wss://chat.example/ws&room=general&message=1724803200042&signal=wss://s.example/&signal=wss://t.example/');
+	assert.equal(webUrl(web.web, message, message.servers[0]), 'https://web.apron.chat/?server=wss%3A%2F%2Fchat.example%2Fws&room=general#message=1724803200042&signal=wss%3A%2F%2Fs.example%2F&signal=wss%3A%2F%2Ft.example%2F');
+	const renamed = { url: 'https://x.example/', query: { server: 's' }, fragment: { room: 'r' } };
+	const clash = link('apron:?server=wss://chat.example/&room=a&s=wss://evil.example/&r=b&token=t');
+	assert.equal(webUrl(renamed, clash, clash.servers[0]), 'https://x.example/?s=wss%3A%2F%2Fchat.example%2F#r=a&token=t', "never in place of a key the client's format names");
+});
+
+test('a remembered choice opens a sign-in link too, with its token', () => {
+	const signIn = link('https://link.apron.chat/#server=wss://chat.example/ws&token=t&state=s');
+	assert.equal(autoOpen(signIn, registry, [], 'apron-web')?.href, 'https://web.apron.chat/?server=wss%3A%2F%2Fchat.example%2Fws#token=t&state=s');
+	assert.equal(autoOpen(link('https://link.apron.chat/#server=ws://localhost:8080/&token=t'), registry, [], 'apron-web'), undefined, 'this device still asks');
+});
+
 test('offers clients that support one of the servers, the preferred one first', () => {
 	const both = { clients: [registry.clients[0], native] };
 	const parsed = link('apron:?server=wss://chat.example/ws&room=general');

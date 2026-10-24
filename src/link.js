@@ -17,11 +17,14 @@ export const LINK_ORIGIN = 'https://link.apron.chat';
 /** Transports this page knows how to check. Others are kept, but only a client that lists them can open them. */
 export const KNOWN_TRANSPORTS = ['wss', 'ws'];
 
-/** Keys that carry a credential. A link never does (SPEC.md §2); one that does is a sign-in link sent the wrong way. */
-const CREDENTIAL_KEYS = ['token'];
+/** Keys that carry a credential (SPEC.md §2.1): only a sign-in link has them, and only in the fragment. */
+export const CREDENTIAL_KEYS = ['token'];
 
 /** Keys that appear at most once. Two parsers that keep different copies would open different places. */
 const SINGLE_KEYS = ['room', 'thread', 'message'];
+
+/** Keys of a sign-in link that appear at most once: a client given two tokens could use either. */
+const SINGLE_EXTRA_KEYS = ['token', 'state'];
 
 /**
  * @typedef {object} Server
@@ -38,18 +41,17 @@ const SINGLE_KEYS = ['room', 'thread', 'message'];
  * @property {string} [room]
  * @property {string} [thread] only with `room`
  * @property {string} [message] only with `room`
- * @property {[string, string][]} extra keys this page doesn't use, kept in order
+ * @property {[string, string][]} extra keys this page doesn't use, kept in order and passed on to the client
  */
 
 /**
  * @typedef {{ kind: 'empty' }
- *   | { kind: 'sign-in' }
  *   | { kind: 'invalid', reason: Reason, detail?: string }
  *   | { kind: 'link', link: Link }} Parsed
  */
 
 /**
- * @typedef {'no-server' | 'bad-server' | 'insecure-server' | 'bad-room' | 'bad-thread' | 'bad-message'
+ * @typedef {'no-server' | 'sign-in-without-server' | 'exposed-credential' | 'bad-server' | 'insecure-server' | 'bad-room' | 'bad-thread' | 'bad-message'
  *   | 'thread-without-room' | 'message-without-room' | 'duplicate-key' | 'not-a-link'} Reason
  */
 
@@ -81,12 +83,14 @@ export function parseLink(input) {
 /**
  * Reads the page's own address. The link belongs in the fragment, but keys
  * in the query are read too, so that a web.apron.chat address with its
- * domain swapped (`?server=…&room=…#message=…`) still works.
+ * domain swapped (`?server=…&room=…#message=…`) still works. A credential
+ * in the query has already reached the site's host, so it is refused.
  * @param {Pick<Location, 'search' | 'hash'>} location
  * @returns {Parsed}
  */
 export function parseLocation(location) {
 	const params = new URLSearchParams(location.search);
+	if (CREDENTIAL_KEYS.some((key) => params.has(key))) return { kind: 'invalid', reason: 'exposed-credential' };
 	for (const [key, value] of new URLSearchParams(location.hash.replace(/^#/, ''))) params.append(key, value);
 	return parseParams(params);
 }
@@ -97,13 +101,15 @@ export function parseLocation(location) {
  */
 export function parseParams(params) {
 	if ([...params.keys()].length === 0) return { kind: 'empty' };
-	if (CREDENTIAL_KEYS.some((key) => params.has(key))) return { kind: 'sign-in' };
-	for (const key of SINGLE_KEYS) {
+	for (const key of [...SINGLE_KEYS, ...SINGLE_EXTRA_KEYS]) {
 		if (params.getAll(key).length > 1) return { kind: 'invalid', reason: 'duplicate-key', detail: key };
 	}
 
 	const values = params.getAll('server');
-	if (values.length === 0) return { kind: 'invalid', reason: 'no-server' };
+	const signIn = CREDENTIAL_KEYS.some((key) => params.has(key));
+	if (values.length === 0) return { kind: 'invalid', reason: signIn ? 'sign-in-without-server' : 'no-server' };
+	// A token is for one server: a client offered two could take it to the other one (SPEC.md §2.1).
+	if (signIn && values.length > 1) return { kind: 'invalid', reason: 'duplicate-key', detail: 'server' };
 	/** @type {Server[]} */
 	const servers = [];
 	for (const value of values) {
@@ -241,6 +247,25 @@ export function formatParams(link) {
 	if (link.message !== undefined) entries.push(['message', link.message]);
 	entries.push(...link.extra);
 	return entries.map(([key, value]) => `${encodeValue(key)}=${encodeValue(value)}`).join('&');
+}
+
+/**
+ * Whether a link signs in: it carries a credential key (SPEC.md §2.1), to
+ * pass on to the client and never to copy or keep.
+ * @param {Link} link
+ */
+export function signsIn(link) {
+	return link.extra.some(([key]) => CREDENTIAL_KEYS.includes(key));
+}
+
+/**
+ * Whether an address carries a credential key anywhere, valid link or not:
+ * such an address leaves the address bar before anything else.
+ * @param {Pick<Location, 'search' | 'hash'>} location
+ */
+export function hasCredential(location) {
+	const keys = [...new URLSearchParams(location.search).keys(), ...new URLSearchParams(location.hash.replace(/^#/, '')).keys()];
+	return keys.some((key) => CREDENTIAL_KEYS.includes(key));
 }
 
 /**

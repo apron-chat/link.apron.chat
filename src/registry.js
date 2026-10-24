@@ -218,6 +218,10 @@ export function nativeStore(client, platform) {
 /**
  * The address that opens a link in a web client, built from the registry's
  * description with the URL API, so a link's values can only ever be values.
+ * The keys the page doesn't use, such as a sign-in link's `token` and
+ * `state`, follow in the fragment under their own names (SPEC.md §7): never
+ * in the query, which reaches the client's host, and never in place of a
+ * key that the client's format already names.
  * @param {WebOpen} web
  * @param {Link} link
  * @param {Server} server the one of the link's servers to pass
@@ -235,6 +239,8 @@ export function webUrl(web, link, server) {
 		const v = value(ours);
 		if (v !== undefined) fragment.set(theirs, v);
 	}
+	const named = [...Object.values(web.query ?? {}), ...Object.values(web.fragment ?? {})];
+	for (const [key, v] of link.extra) if (!named.includes(key)) fragment.append(key, v);
 	url.hash = fragment.toString();
 	return url.toString();
 }
