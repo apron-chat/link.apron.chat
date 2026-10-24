@@ -77,6 +77,12 @@ Add your app to [`clients.json`](clients.json) in a pull request.
 }
 ```
 
+Keys the page doesn't use arrive in your URL's fragment under their own
+names, after the keys you map. A sign-in link
+([SPEC.md §2.1](SPEC.md#21-sign-in-links)) arrives as, for example,
+`https://my-app.example/open?server=wss%3A%2F%2Fchat.example%2Fws#token=…&state=…`.
+A key whose name your format already uses is not passed on.
+
 A client in the registry agrees to follow [SPEC.md §6](SPEC.md#6-clients):
 
 - Links never act on their own.
@@ -96,7 +102,9 @@ private network, still show the page. Turn it off on https://link.apron.chat/.
 
 The page offers a native app's store link on its platform. It also offers
 "Open in an installed app", which opens the `apron:` URI, when any app in
-the registry has a native build for that platform.
+the registry has a native build for that platform, but not for a sign-in
+link: any app can claim `apron:`. Native apps get sign-in links through the
+app association files.
 
 ## Blocking a server
 

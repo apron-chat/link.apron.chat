@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { encodeValue, formatLink, formatUri, networkOf, parseLink, parseLocation, parseServer, visible } from '../src/link.js';
+import { encodeValue, formatLink, formatUri, hasCredential, networkOf, parseLink, parseLocation, parseServer, signsIn, visible } from '../src/link.js';
 
 /** @param {string} input */
 function link(input) {
@@ -58,9 +58,27 @@ test('an empty link is the landing page', () => {
 	assert.deepEqual(parseLocation({ search: '', hash: '' }), { kind: 'empty' });
 });
 
-test('a sign-in link is never a link', () => {
-	assert.deepEqual(parseLink('https://link.apron.chat/#token=Hk41x9&server=wss://chat.example/'), { kind: 'sign-in' });
-	assert.deepEqual(parseLocation({ search: '?token=x', hash: '' }), { kind: 'sign-in' });
+test('a sign-in link is a link that carries its token on', () => {
+	const parsed = link('https://link.apron.chat/#token=Hk41x9&state=q8Rz&server=wss%3A%2F%2Fchat.example%2F');
+	assert.deepEqual(parsed.servers.map((s) => s.value), ['wss://chat.example/']);
+	assert.deepEqual(parsed.extra, [['token', 'Hk41x9'], ['state', 'q8Rz']]);
+	assert.ok(signsIn(parsed));
+	assert.ok(!signsIn(link('apron:?server=wss://chat.example/&state=q8Rz')), 'state alone is no credential');
+});
+
+test('a sign-in link keeps its token in the fragment, and names its server', () => {
+	assert.deepEqual(parseLocation({ search: '?token=x&server=wss://chat.example/', hash: '' }), { kind: 'invalid', reason: 'exposed-credential' });
+	assert.deepEqual(parseLink('https://link.apron.chat/?token=x#server=wss://chat.example/'), { kind: 'invalid', reason: 'exposed-credential' });
+	assert.deepEqual(parseLink('https://link.apron.chat/#token=x&state=y'), { kind: 'invalid', reason: 'sign-in-without-server' });
+	assert.deepEqual(parseLink('apron:?server=wss://chat.example/&token=a&token=b'), { kind: 'invalid', reason: 'duplicate-key', detail: 'token' });
+	assert.deepEqual(parseLink('apron:?server=wss://chat.example/&token=a&state=b&state=c'), { kind: 'invalid', reason: 'duplicate-key', detail: 'state' });
+});
+
+test('finds a credential in any address, valid link or not', () => {
+	assert.ok(hasCredential({ search: '', hash: '#token=x' }));
+	assert.ok(hasCredential({ search: '?token=x', hash: '' }));
+	assert.ok(hasCredential({ search: '', hash: '#server=bad&token=x&token=y' }));
+	assert.ok(!hasCredential({ search: '', hash: '#server=wss://chat.example/&state=x' }));
 });
 
 test('the server is required', () => {

@@ -7,7 +7,7 @@
  * All markup is built with DOM calls and `textContent`: the page's CSP
  * forbids the HTML sinks (Trusted Types), because a link chooses every value.
  */
-import { formatLink, formatParams, formatUri, messageTime, parseLink, parseLocation, visible } from './link.js';
+import { formatLink, formatParams, formatUri, hasCredential, messageTime, parseLink, parseLocation, signsIn, visible } from './link.js';
 import { autoOpen, blockedEntry, checkWebAppUrl, CUSTOM_PREFIX, detectPlatform, nativeStore, offersFor, selfHostable, unsupportedTransports, withCustom } from './registry.js';
 import { blocked, registry } from './data.js';
 
@@ -24,9 +24,18 @@ const SAVED_KEY = 'web-apps';
 const REPOSITORY = 'https://github.com/apron-chat/link.apron.chat';
 const platform = detectPlatform(navigator);
 
+/**
+ * A sign-in link, once it is out of the address bar: held here only, so the
+ * page can still offer it after the viewer adds a web app. Gone with the page.
+ * @type {Link | undefined}
+ */
+let held;
+
 /** @type {Record<Reason, string>} */
 const REASONS = {
 	'no-server': "This link doesn't say which server it's for. Links inside Apron messages can leave the server out, but they only work in the app that showed them. Ask for a link made with the app's Copy link.",
+	'sign-in-without-server': "This sign-in link doesn't say which server it's for, so it works only in the app that asked for it. Open it there, or ask to sign in again.",
+	'exposed-credential': 'This sign-in link was sent in a form that hands its token to the site it points at, so link.apron.chat has removed it and won\'t use it. Ask to sign in again.',
 	'bad-server': "The server in this link isn't a valid address.",
 	'insecure-server': 'This link connects without encryption (ws://) to a server that is not on this device. Apron links allow ws:// only for localhost.',
 	'bad-room': "The room in this link isn't a valid room ID.",
@@ -118,19 +127,22 @@ function allClients() {
 }
 
 function render() {
-	const parsed = parseLocation(location);
+	const credential = hasCredential(location);
+	/** @type {import('./link.js').Parsed} */
+	const parsed = held && !location.search && !location.hash ? { kind: 'link', link: held } : parseLocation(location);
 	const main = /** @type {HTMLElement} */ (document.getElementById('app'));
-	if (parsed.kind === 'sign-in') {
-		// A credential: out of the address bar, history and bookmarks before anything else.
-		history.replaceState(null, '', '/');
-		main.replaceChildren(signInView());
-	} else if (parsed.kind === 'empty') {
+	// A credential: out of the address bar, history and bookmarks before anything else.
+	if (credential) history.replaceState(null, '', '/');
+	if (parsed.kind === 'empty') {
 		main.replaceChildren(landingView());
 	} else if (parsed.kind === 'invalid') {
 		main.replaceChildren(invalidView(REASONS[parsed.reason], parsed.reason === 'duplicate-key' ? parsed.detail : undefined));
 	} else {
-		const canonical = `/#${formatParams(parsed.link)}`;
-		if (location.pathname + location.search + location.hash !== canonical) history.replaceState(null, '', canonical);
+		if (signsIn(parsed.link)) held = parsed.link;
+		else {
+			const canonical = `/#${formatParams(parsed.link)}`;
+			if (location.pathname + location.search + location.hash !== canonical) history.replaceState(null, '', canonical);
+		}
 		const auto = loadRemember() ? autoOpen(parsed.link, allClients(), blocked, loadPreferred()) : undefined;
 		if (auto) {
 			// Replaced, not pushed: Back then skips this page instead of opening the app again.
@@ -146,14 +158,16 @@ function render() {
 /** @param {Link} link */
 function linkView(link) {
 	const block = blockedEntry(link, blocked);
-	const card = h('section', { class: 'card' }, h('h1', {}, 'Open in an Apron app'), destinationView(link));
+	const signIn = signsIn(link);
+	const card = h('section', { class: 'card' }, h('h1', {}, signIn ? 'Sign in with an Apron app' : 'Open in an Apron app'), destinationView(link));
 
 	const network = link.servers[0].network;
 	if (block) {
 		card.append(notice('danger', `link.apron.chat has blocked this server: ${block.reason}`));
-		card.append(copyRow(link));
+		if (!signIn) card.append(copyRow(link));
 		return card;
 	}
+	if (signIn) card.append(notice('warn', "This link signs you in to the server above. Continue only if you just asked to sign in, on this device or another: a link someone sent you can sign you in to their account. link.apron.chat passes it to the app you choose, and keeps no copy."));
 	if (network === 'loopback') card.append(notice('warn', 'This link points at a server on your own device. Open it only if you expected it: a local server can run tools and code for you.'));
 	else if (network === 'private') card.append(notice('warn', 'This link points at a server on a private network, such as a home or office network.'));
 
@@ -166,7 +180,7 @@ function linkView(link) {
 	offers.forEach((offer, index) => {
 		// No highlighted button for a local server: opening one should be a choice, not a reflex.
 		const primary = index === 0 && offer.kind === 'web' && !network;
-		const label = offer.kind === 'web' ? `Open in ${offer.client.name}` : `Get ${offer.client.name}`;
+		const label = offer.kind === 'web' ? `${signIn ? 'Continue in' : 'Open in'} ${offer.client.name}` : `Get ${offer.client.name}`;
 		const host = offer.kind === 'web' && offer.client.web ? where(offer.client.web.url) : new URL(offer.href).host;
 		const meta = offer.kind === 'web' && offer.client.id === preferred ? `${host} · default` : host;
 		const button = h('a', { class: primary ? 'button primary' : 'button', href: offer.href, rel: 'noopener noreferrer' }, h('span', {}, label), h('span', { class: 'button-meta' }, meta));
@@ -178,7 +192,8 @@ function linkView(link) {
 		}
 		actions.append(button);
 	});
-	if (registry.clients.some((client) => nativeStore(client, platform))) {
+	// Any app can claim `apron:`, so a credential never goes there; verified app links reach native apps instead.
+	if (!signIn && registry.clients.some((client) => nativeStore(client, platform))) {
 		actions.append(h('a', { class: 'button', href: formatUri(link) }, h('span', {}, 'Open in an installed app'), h('span', { class: 'button-meta' }, 'apron:')));
 	}
 	if (offers.length) {
@@ -197,7 +212,7 @@ function linkView(link) {
 		card.append(h('details', { class: 'add-app' }, h('summary', {}, `Use your own ${selfHostable(registry)[0].name}`), webAppForm(render)));
 	}
 	card.append(h('p', { class: 'caution' }, 'An Apron server controls everything you see on it, including names and sign-in pages. Open links only to servers you trust.'));
-	card.append(copyRow(link));
+	if (!signIn) card.append(copyRow(link));
 	return card;
 }
 
@@ -243,15 +258,6 @@ function copyButton(/** @type {string} */ label, /** @type {string} */ text) {
 /** @param {'info' | 'warn' | 'danger'} tone */
 function notice(tone, /** @type {string} */ text) {
 	return h('p', { class: `notice ${tone}`, role: tone === 'info' ? undefined : 'alert' }, text);
-}
-
-function signInView() {
-	return h(
-		'section',
-		{ class: 'card' },
-		h('h1', {}, 'This is a sign-in link'),
-		h('p', {}, "Sign-in links carry a password-like token, so link.apron.chat never passes them on, and has removed this one from the address bar. Open the sign-in link in the app that asked for it. If you didn't ask to sign in, ignore it: someone may be trying to sign you in to their account.")
-	);
 }
 
 function invalidView(/** @type {string} */ reason, /** @type {string | undefined} */ key) {
@@ -374,13 +380,22 @@ function pasteForm() {
 	form.addEventListener('submit', (event) => {
 		event.preventDefault();
 		const parsed = parseLink(input.value);
-		if (parsed.kind === 'link') location.hash = formatParams(parsed.link);
-		else if (parsed.kind === 'sign-in') error.textContent = 'That is a sign-in link. Open it in the app that asked for it.';
+		if (parsed.kind === 'link' && signsIn(parsed.link)) {
+			// Shown without passing through the address bar, and out of the field too.
+			input.value = '';
+			held = parsed.link;
+			if (location.search || location.hash) history.replaceState(null, '', '/');
+			render();
+		} else if (parsed.kind === 'link') location.hash = formatParams(parsed.link);
 		else if (parsed.kind === 'invalid') error.textContent = REASONS[parsed.reason];
 		else error.textContent = REASONS['not-a-link'];
 	});
 	return form;
 }
 
-window.addEventListener('hashchange', render);
+window.addEventListener('hashchange', () => {
+	// Another link replaces the sign-in link held, if any.
+	held = undefined;
+	render();
+});
 render();

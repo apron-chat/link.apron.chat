@@ -2,7 +2,9 @@
 
 An Apron link refers to an Apron server, or to a room, thread, or message on
 one. Any Apron client can open it. One person copies a link from their app,
-and another person opens it in a different app.
+and another person opens it in a different app. A sign-in link
+([§2.1](#21-sign-in-links)) uses the same form to bring a server's sign-in
+token to whichever app the user signs in with.
 
 Apron has no global namespace. A server is the authority for its own rooms
 and messages, and a server is reached at an address. So every link carries
@@ -32,7 +34,8 @@ their prefix:
 - Clients MUST read all three forms.
 - Clients SHOULD write the web form when the user copies or shares a link.
 - Readers SHOULD also accept the keys in the query of a link.apron.chat
-  URL, and treat them as if they were in the fragment.
+  URL, and treat them as if they were in the fragment, except credential
+  keys ([§2.1](#21-sign-in-links)).
 
 ## 2. Keys
 
@@ -51,9 +54,41 @@ their prefix:
 - A reader MUST refuse a link that repeats `room`, `thread`, or `message`.
   (Two readers that keep different copies would open different places.)
 - Readers ignore other keys. Writers keep the keys that they do not know.
-- A link MUST NOT carry a credential. Readers MUST refuse a link that has a
-  `token` key, and MUST NOT act on it.
+  link.apron.chat passes them on to the client ([§7](#7-linkapronchat)).
+- Only a sign-in link carries a credential ([§2.1](#21-sign-in-links)).
 - New keys are defined in this document only.
+
+### 2.1. Sign-in links
+
+A server that signs a user in outside the connection, by email or with an
+external sign-in page, sends a sign-in link
+([PROTOCOL.md §4.11.2](https://github.com/shazow/apron/blob/main/PROTOCOL.md#411-email-and-external-sign-in)).
+In the web form, any Apron client can take it:
+
+```text
+https://link.apron.chat/#server=wss://chat.example/ws&token=Hk41x9…&state=q8Rz…
+```
+
+| key | value | count |
+|-----|-------|-------|
+| `token` | the sign-in token: a credential | exactly one |
+| `state` | the `state` of the proposal that the link answers | at most one |
+
+- `token` is the only credential key. Readers treat a key as a credential
+  only when this document says so.
+- A sign-in link names one `server`: the server that the token is for. A
+  reader MUST refuse a sign-in link without `server`, or with `token` or
+  `state` more than once.
+- Credential keys go in the URL fragment only. A reader MUST refuse a
+  link.apron.chat URL with a credential key in its query: its host has
+  already received the token.
+- A server MAY send the web form of a sign-in link to a client that is not
+  tied to it, such as one that proposed sign-in with no `return_url`.
+- A client never writes a sign-in link, and never copies or shares one.
+- A client uses a sign-in link with the `state` of a proposal that it made
+  on the server that the proposal went to, whatever `server` the link
+  names. It uses any other sign-in link only after the user confirms, on a
+  screen that shows the server, because someone else may have made it.
 
 ## 3. Servers
 
@@ -129,7 +164,9 @@ apron:?room=ops&message=1724803200042
   itself, without a browser.
 - Opening a link only shows its place. A client MUST NOT send, post, join,
   sign in, upload, or change a setting because of a link, without an action
-  of the user on a screen that shows the server.
+  of the user on a screen that shows the server. A sign-in link with the
+  `state` of the client's own proposal continues the user's sign-in, which
+  started on such a screen ([§2.1](#21-sign-in-links)).
 - Before a client connects to a server that the user has not used, it shows
   the server's host and asks the user. It shows an internationalized host
   name in its ASCII form.
@@ -176,8 +213,17 @@ what the link refers to, and offers the clients that can open it.
 - The page keeps the viewer's default client, the remembered choice, and
   added web clients in the browser only. The default is offered first.
 - The page loads no script, style, or image from another origin.
-- The page removes a link with a `token` key from the address bar, and does
-  not offer it to any client.
+- The page passes the keys that it does not use on to the client, under
+  their own names, in the fragment of the client's address, after the keys
+  that the registry maps. It never puts them in the query, which the
+  client's host receives. It leaves out a key whose name the client's
+  format already uses.
+- For a sign-in link, the page removes the link from the address bar before
+  anything else, and keeps it in memory only. It says that the link signs
+  in. It does not offer the link to copy, or as an `apron:` URI, because any
+  app can claim that scheme.
+- The page refuses a link with a credential key in its query, and removes
+  it from the address bar.
 - The page refuses a server on the blocklist (`blocked.json`), and the names
   under it.
 
@@ -229,9 +275,20 @@ exist because of these threats:
   the association file can take links with no choice shown to the user.
   Changes to the registry get the review of code that runs on every user's
   phone. A link carries no secret, so an app that takes links gains little.
-- **Sign-in links.** A sign-in link carries a bearer token. If link.apron.chat
-  passed one on, someone could sign the user in to the attacker's account
-  (login cross-site request forgery) or capture the token.
+- **Sign-in links.** A sign-in link carries a bearer token. Someone could
+  send the user a sign-in link to the attacker's account (login cross-site
+  request forgery), or capture a token that leaks. Only the client can tell
+  the user's own sign-in from a link that someone else made, because it
+  holds the proposal's `state`. So link.apron.chat passes sign-in links on,
+  and the client decides ([§2.1](#21-sign-in-links)). Passing a link on adds
+  no risk, because anyone can link to a client with a token directly. What
+  the page must not do is leak the token. So the token stays in fragments,
+  out of the address bar and history, out of copied links, and out of
+  `apron:` URIs. With "Remember my choice", the client's check is the only
+  one.
+- **Keys passed on.** The page passes keys that it does not know to the
+  client. They reach only the client's fragment, which a client treats as
+  untrusted in any case: anyone can write it in a direct link.
 - **Disclosure.** A link shows its server's address and its room ID to anyone
   who sees it. Room IDs and server addresses are not secrets, and the server
   enforces access. The fragment keeps links out of link.apron.chat's logs,
@@ -251,6 +308,7 @@ local server  https://link.apron.chat/#server=ws://localhost:8080/ws&room=agent
 two ways      https://link.apron.chat/#server=webtransport://chat.example/wt&server=wss://chat.example/ws&room=general
 peer          https://link.apron.chat/#server=webrtc:k2Fp9xQ&signal=wss://signal.example/s&room=general
 relative      apron:?room=ops&message=1724803200042
+sign-in       https://link.apron.chat/#server=wss://chat.example/ws&token=Hk41x9&state=q8Rz
 ```
 
 The `webtransport` and `webrtc` examples use reserved transports. Their
