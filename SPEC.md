@@ -64,16 +64,19 @@ their prefix:
 
 A server that signs a user in outside the connection, by email or with an
 external sign-in page, sends a sign-in link
-([PROTOCOL.md §4.11.2](https://github.com/shazow/apron/blob/main/PROTOCOL.md#411-email-and-external-sign-in)).
+([PROTOCOL.md §4.11.2](https://github.com/shazow/apron/blob/main/PROTOCOL.md#4112-temporary-tokens)).
+A server that invites people sends one with an invite
+([PROTOCOL.md Appendix B.3](https://github.com/shazow/apron/blob/main/PROTOCOL.md#b3-an-invite-token-signs-up-several-people)).
 In the web form, any Apron client can take it:
 
 ```text
 https://link.apron.chat/#server=wss://chat.example/ws&token=Hk41x9…&state=q8Rz…
+https://link.apron.chat/#server=wss://chat.example/ws&token=inv_Qm7x…
 ```
 
 | key | value | count |
 |-----|-------|-------|
-| `token` | the sign-in token: a credential | exactly one |
+| `token` | a sign-in token or an invite: a credential | exactly one |
 | `state` | the `state` of the proposal that the link answers | at most one |
 
 - `token` is the only credential key. Readers treat a key as a credential
@@ -91,6 +94,8 @@ https://link.apron.chat/#server=wss://chat.example/ws&token=Hk41x9…&state=q8Rz
   on the server that the proposal went to, whatever `server` the link
   names. It uses any other sign-in link only after the user confirms, on a
   screen that shows the server, because someone else may have made it.
+- A client presents the token of a link without the `state` of its own
+  proposal with `scheme: "token"`. The server knows what the token is for.
 
 ## 3. Servers
 
