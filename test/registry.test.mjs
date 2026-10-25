@@ -33,13 +33,14 @@ test('the registry check finds mistakes', () => {
 		clients: [
 			{ id: 'Bad Id', name: '', homepage: 'http://x.example/', transports: [], web: { url: 'https://x.example/#a', query: { room: 'r', nope: 'n' } }, typo: 1 },
 			{ ...native, id: 'pocket' },
-			{ ...native, id: 'pocket', ios: { app_ids: ['bad'] }, android: { package: 'x', sha256_cert_fingerprints: ['ab'] } }
+			{ ...native, id: 'pocket', ios: { app_ids: ['bad'] }, macos: { app_ids: [], store: 'x' }, android: { package: 'x', sha256_cert_fingerprints: ['ab'] } }
 		]
 	});
-	for (const expected of ['unknown key "typo"', 'id: lowercase', 'name:', 'homepage:', 'transports:', 'web.url:', '"nope" is not a link key', 'must pass "server"', 'id: already used', 'ios.app_ids', 'android.package', 'android.sha256']) {
+	for (const expected of ['unknown key "typo"', 'id: lowercase', 'name:', 'homepage:', 'transports:', 'web.url:', '"nope" is not a link key', 'must pass "server"', 'id: already used', 'ios.app_ids', 'macos: unknown key "store"', 'macos.app_ids', 'android.package', 'android.sha256']) {
 		assert.ok(problems.some((p) => p.includes(expected)), `expected a problem with ${expected} in ${JSON.stringify(problems, null, 1)}`);
 	}
 	assert.deepEqual(checkRegistry({ clients: [native] }), []);
+	assert.deepEqual(checkRegistry({ clients: [{ ...native, id: 'desk', ios: undefined, android: undefined, macos: { app_ids: ['ABCDE12345.example.desk'] } }] }), [], 'a Mac app alone');
 });
 
 test('opens apron-web with its own address format', () => {
@@ -113,6 +114,9 @@ test('builds the app association files', () => {
 	assert.deepEqual(appleAppSiteAssociation({ clients: [native] }), {
 		applinks: { details: [{ appIDs: ['ABCDE12345.example.pocket'], components: [{ '/': '/', comment: 'Apron links' }] }] }
 	});
+	const mac = { ...native, id: 'desk', ios: undefined, android: undefined, macos: { app_ids: ['ABCDE12345.example.desk'] } };
+	const both = { ...native, macos: { app_ids: native.ios.app_ids } };
+	assert.deepEqual(appleAppSiteAssociation({ clients: [native, mac, both] }).applinks.details[0].appIDs, ['ABCDE12345.example.pocket', 'ABCDE12345.example.desk'], 'iOS and Mac apps, each app ID once');
 	assert.deepEqual(assetLinks({ clients: [native] }), [
 		{
 			relation: ['delegate_permission/common.handle_all_urls'],

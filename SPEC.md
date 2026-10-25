@@ -240,8 +240,9 @@ what the link refers to, and offers the clients that can open it.
   under it.
 
 The registry (`clients.json`) lists the clients that the page offers. The
-build makes the iOS and Android app association files from it, so each app
-in the registry can open link.apron.chat links directly.
+build makes the Apple (iOS and macOS) and Android app association files
+from it, so each app in the registry can open link.apron.chat links
+directly.
 
 ## 8. Security considerations
 
@@ -285,10 +286,11 @@ exist because of these threats:
   Servers on the viewer's own device or network always show the page,
   because of the threat to local servers above.
 - **The registry.** Whoever can change the registry or the app association
-  files decides which apps receive Apron links on phones. On iOS, an app in
-  the association file can take links with no choice shown to the user.
-  Changes to the registry get the review of code that runs on every user's
-  phone. A link carries no secret, so an app that takes links gains little.
+  files decides which apps receive Apron links on phones and Macs. On iOS
+  and macOS, an app in the association file can take links with no choice
+  shown to the user. Changes to the registry get the review of code that
+  runs on every user's device. A link carries no secret, so an app that
+  takes links gains little.
 - **Sign-in links.** A sign-in link carries a bearer token. Someone could
   send the user a sign-in link to the attacker's account (login cross-site
   request forgery), or capture a token that leaks. Only the client can tell
