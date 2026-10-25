@@ -1,12 +1,11 @@
 // @ts-check
 /**
  * Apron links (SPEC.md): what a link refers to, read from and written to
- * its three forms.
+ * its two forms.
  *
  * ```text
  * https://link.apron.chat/#server=wss://chat.example/ws&room=general&message=1724803200042
  * apron:?server=wss://chat.example/ws&room=general&message=1724803200042
- * web+apron:?server=wss://chat.example/ws&room=general&message=1724803200042
  * ```
  *
  * Pure functions only, so the page and the tests share them.
@@ -20,11 +19,11 @@ export const KNOWN_TRANSPORTS = ['wss', 'ws'];
 /** Keys that carry a credential (SPEC.md §2.1): only a sign-in link has them, and only in the fragment. */
 export const CREDENTIAL_KEYS = ['token'];
 
-/** Keys that appear at most once. Two parsers that keep different copies would open different places. */
-const SINGLE_KEYS = ['room', 'message', 'user'];
+/** Keys this page reads into a `Link`. Readers use the first value of a repeated key. */
+const LINK_KEYS = ['server', 'room', 'message', 'user'];
 
-/** Keys of a sign-in link that appear at most once: a client given two tokens could use either. */
-const SINGLE_EXTRA_KEYS = ['token', 'state'];
+/** Keys of a sign-in link, passed on with their first value only: a client given two tokens could use either. */
+const SIGN_IN_KEYS = ['token', 'state'];
 
 /**
  * @typedef {object} Server
@@ -37,7 +36,7 @@ const SINGLE_EXTRA_KEYS = ['token', 'state'];
 
 /**
  * @typedef {object} Link
- * @property {Server[]} servers in preference order; at least one
+ * @property {Server} server
  * @property {string} [room] a room, also a thread
  * @property {string} [message] only with `room`
  * @property {string} [user] a user; with `room`, a member of that room
@@ -52,18 +51,18 @@ const SINGLE_EXTRA_KEYS = ['token', 'state'];
 
 /**
  * @typedef {'no-server' | 'sign-in-without-server' | 'exposed-credential' | 'bad-server' | 'insecure-server' | 'bad-room' | 'bad-message' | 'bad-user'
- *   | 'message-without-room' | 'duplicate-key' | 'not-a-link'} Reason
+ *   | 'message-without-room' | 'not-a-link'} Reason
  */
 
 /**
- * Reads any form of a link: a link.apron.chat URL, an `apron:` or
- * `web+apron:` URI, or the bare key list after the `#`.
+ * Reads either form of a link: a link.apron.chat URL or an `apron:` URI,
+ * or the bare key list after the `#`.
  * @param {string} input
  * @returns {Parsed}
  */
 export function parseLink(input) {
 	const text = input.trim();
-	const scheme = /^(?:web\+)?apron:/i.exec(text);
+	const scheme = /^apron:/i.exec(text);
 	if (scheme) return parseParams(new URLSearchParams(text.slice(scheme[0].length).replace(/^\?/, '')));
 	if (/^https?:\/\//i.test(text)) {
 		let url;
@@ -75,48 +74,42 @@ export function parseLink(input) {
 		if (url.origin !== LINK_ORIGIN) return { kind: 'invalid', reason: 'not-a-link' };
 		return parseLocation(url);
 	}
-	// Bare keys: text without a single `key=value` is something else pasted.
-	if (!text.includes('=')) return { kind: 'invalid', reason: 'not-a-link' };
+	// Bare keys: text without a single `key=value`, or a URI of another scheme, is something else pasted.
+	if (!text.includes('=') || /^[a-z][a-z0-9+.-]*:/i.test(text)) return { kind: 'invalid', reason: 'not-a-link' };
 	return parseParams(new URLSearchParams(text.replace(/^[#?]/, '')));
 }
 
 /**
  * Reads the page's own address. The link belongs in the fragment, but keys
  * in the query are read too, so that a web.apron.chat address with its
- * domain swapped (`?server=…&room=…#message=…`) still works. A credential
- * in the query has already reached the site's host, so it is refused.
+ * domain swapped (`?server=…&room=…#message=…`) still works. They follow the
+ * fragment's keys, so the fragment's value of a repeated key wins. A
+ * credential in the query has already reached the site's host, so it is refused.
  * @param {Pick<Location, 'search' | 'hash'>} location
  * @returns {Parsed}
  */
 export function parseLocation(location) {
-	const params = new URLSearchParams(location.search);
-	if (CREDENTIAL_KEYS.some((key) => params.has(key))) return { kind: 'invalid', reason: 'exposed-credential' };
-	for (const [key, value] of new URLSearchParams(location.hash.replace(/^#/, ''))) params.append(key, value);
+	const query = new URLSearchParams(location.search);
+	if (CREDENTIAL_KEYS.some((key) => query.has(key))) return { kind: 'invalid', reason: 'exposed-credential' };
+	const params = new URLSearchParams(location.hash.replace(/^#/, ''));
+	for (const [key, value] of query) params.append(key, value);
 	return parseParams(params);
 }
 
 /**
+ * Reads a link's keys. A repeated key counts with its first value, as
+ * `URLSearchParams.get` gives it (SPEC.md §2).
  * @param {URLSearchParams} params form-decoded, so a `+` is a space
  * @returns {Parsed}
  */
 export function parseParams(params) {
 	if ([...params.keys()].length === 0) return { kind: 'empty' };
-	for (const key of [...SINGLE_KEYS, ...SINGLE_EXTRA_KEYS]) {
-		if (params.getAll(key).length > 1) return { kind: 'invalid', reason: 'duplicate-key', detail: key };
-	}
 
-	const values = params.getAll('server');
+	const value = params.get('server');
 	const signIn = CREDENTIAL_KEYS.some((key) => params.has(key));
-	if (values.length === 0) return { kind: 'invalid', reason: signIn ? 'sign-in-without-server' : 'no-server' };
-	// A token is for one server: a client offered two could take it to the other one (SPEC.md §2.1).
-	if (signIn && values.length > 1) return { kind: 'invalid', reason: 'duplicate-key', detail: 'server' };
-	/** @type {Server[]} */
-	const servers = [];
-	for (const value of values) {
-		const server = parseServer(value);
-		if (typeof server === 'string') return { kind: 'invalid', reason: server, detail: value };
-		servers.push(server);
-	}
+	if (value === null) return { kind: 'invalid', reason: signIn ? 'sign-in-without-server' : 'no-server' };
+	const server = parseServer(value);
+	if (typeof server === 'string') return { kind: 'invalid', reason: server, detail: value };
 
 	const room = params.get('room') ?? undefined;
 	const message = params.get('message') ?? undefined;
@@ -129,11 +122,11 @@ export function parseParams(params) {
 	if (user !== undefined && !isOpaqueId(user)) return { kind: 'invalid', reason: 'bad-user', detail: user };
 
 	/** @type {[string, string][]} */
-	const extra = [...params].filter(([key]) => key !== 'server' && !SINGLE_KEYS.includes(key));
+	const extra = [...params].filter(([key], index, all) => !LINK_KEYS.includes(key) && !(SIGN_IN_KEYS.includes(key) && all.findIndex(([k]) => k === key) < index));
 	return {
 		kind: 'link',
 		link: {
-			servers,
+			server,
 			...(room !== undefined ? { room } : {}),
 			...(message !== undefined ? { message } : {}),
 			...(user !== undefined ? { user } : {}),
@@ -222,23 +215,21 @@ export function formatLink(link) {
 }
 
 /**
- * The URI form of a link: `apron:?…`, or `web+apron:?…` for a web client's
- * protocol handler.
+ * The URI form of a link: `apron:?…`.
  * @param {Link} link
- * @param {'apron' | 'web+apron'} [scheme]
  */
-export function formatUri(link, scheme = 'apron') {
-	return `${scheme}:?${formatParams(link)}`;
+export function formatUri(link) {
+	return `apron:?${formatParams(link)}`;
 }
 
 /**
- * A link's keys, in a fixed order: servers, room, message, user, then
+ * A link's keys, in a fixed order: server, room, message, user, then
  * the rest as they came.
  * @param {Link} link
  */
 export function formatParams(link) {
 	/** @type {[string, string][]} */
-	const entries = link.servers.map((server) => ['server', server.value]);
+	const entries = [['server', link.server.value]];
 	if (link.room !== undefined) entries.push(['room', link.room]);
 	if (link.message !== undefined) entries.push(['message', link.message]);
 	if (link.user !== undefined) entries.push(['user', link.user]);

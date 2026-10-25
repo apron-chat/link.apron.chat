@@ -11,6 +11,10 @@ and messages, and a server is reached at an address. So every link carries
 the server's address, and everything else in the link is relative to that
 server.
 
+[PROTOCOL.md Appendix A.4](https://github.com/shazow/apron/blob/main/PROTOCOL.md#a4-links)
+defines Apron links, and wins where the two differ. This document adds
+detail: the encoding, the transports, and the link.apron.chat page.
+
 ```text
 https://link.apron.chat/#server=wss://chat.example/ws&room=general&message=1724803200042
 apron:?server=wss://chat.example/ws&room=general&message=1724803200042
@@ -18,30 +22,29 @@ apron:?server=wss://chat.example/ws&room=general&message=1724803200042
 
 ## 1. Forms
 
-A link has three forms. They carry the same key list and differ only in
+A link has two forms. They carry the same key list and differ only in
 their prefix:
 
 | form | prefix | for |
 |------|--------|-----|
 | web | `https://link.apron.chat/#` | sharing between people: chat, email, QR codes |
 | URI | `apron:?` | desktop apps, and references inside apps |
-| web handler | `web+apron:?` | web clients, through `navigator.registerProtocolHandler` |
 
 - The key list follows the prefix, as `application/x-www-form-urlencoded`
   pairs joined with `&`.
 - In the web form, the key list is the URL fragment. Browsers do not send a
   fragment to the server, so link.apron.chat never receives the link.
-- Clients MUST read all three forms.
-- Clients SHOULD write the web form when the user copies or shares a link.
+- Clients MUST read both forms.
+- Clients write the web form when the user copies or shares a link.
 - Readers SHOULD also accept the keys in the query of a link.apron.chat
-  URL, and treat them as if they were in the fragment, except credential
-  keys ([§2.1](#21-sign-in-links)).
+  URL, and treat them as if they followed the keys in the fragment, except
+  credential keys ([§2.1](#21-sign-in-links)).
 
 ## 2. Keys
 
 | key | value | count |
 |-----|-------|-------|
-| `server` | where to reach the server ([§3](#3-servers)) | one or more; required |
+| `server` | where to reach the server ([§3](#3-servers)) | one; required |
 | `room` | a `room_id`, also of a thread | at most one |
 | `message` | a `message_id` in `room` | at most one; requires `room` |
 | `user` | a `user_id`; with `room`, of a member of that room | at most one |
@@ -53,12 +56,14 @@ their prefix:
   learns the parent from the room's record, not from the link.
 - `message` is a `message_id`: a positive decimal integer below 2^53, with no
   leading zero.
-- A reader MUST refuse a link that repeats `room`, `message`, or `user`.
-  (Two readers that keep different copies would open different places.)
+- Readers use the first value of a repeated key. (Two readers that kept
+  different copies would open different places.)
 - Readers ignore other keys. Writers keep the keys that they do not know.
   link.apron.chat passes them on to the client ([§7](#7-linkapronchat)).
 - Only a sign-in link carries a credential ([§2.1](#21-sign-in-links)).
-- New keys are defined in this document only.
+- New keys are defined in
+  [PROTOCOL.md Appendix A.4](https://github.com/shazow/apron/blob/main/PROTOCOL.md#a4-links)
+  or in this document only.
 
 ### 2.1. Sign-in links
 
@@ -76,19 +81,21 @@ https://link.apron.chat/#server=wss://chat.example/ws&token=inv_Qm7x…
 
 | key | value | count |
 |-----|-------|-------|
-| `token` | a sign-in token or an invite: a credential | exactly one |
+| `token` | a sign-in token or an invite: a credential | one; required |
 | `state` | the `state` of the proposal that the link answers | at most one |
 
 - `token` is the only credential key. Readers treat a key as a credential
   only when this document says so.
-- A sign-in link names one `server`: the server that the token is for. A
-  reader MUST refuse a sign-in link without `server`, or with `server`,
-  `token` or `state` more than once.
+- A sign-in link names its `server`: the server that the token is for. A
+  reader MUST refuse a sign-in link without `server`, apart from a relative
+  link in content from that server ([§5](#5-relative-links)).
 - Credential keys go in the URL fragment only. A reader MUST refuse a
   link.apron.chat URL with a credential key in its query: its host has
   already received the token.
 - A server MAY send the web form of a sign-in link to a client that is not
   tied to it, such as one that proposed sign-in with no `return_url`.
+- A server never writes a sign-in link in the `apron:` form, because any
+  app can claim that scheme.
 - A client never writes a sign-in link, and never copies or shares one.
 - A client uses a sign-in link with the `state` of a proposal that it made
   on the server that the proposal went to, whatever `server` the link
@@ -116,11 +123,11 @@ the server and what `<rest>` holds.
   user name, a password, or a fragment.
 - A `ws` value's host MUST be a loopback host: `localhost`, a name under
   `localhost`, `127.0.0.0/8`, or `::1`.
-- A link MAY repeat `server` for one server that is reachable in more than
-  one way. The values are in order of preference.
-- A client uses the first value whose transport it supports.
-- A client that supports none of the values tells the user which transports
-  the link needs. It MUST NOT try another way to reach the server.
+- A client reaches the server only over a transport that it implements. It
+  never hands the `server` value to a browser or the operating system to
+  open.
+- A client that does not support the link's transport tells the user which
+  transport the link needs. It MUST NOT try another way to reach the server.
 - A transport's own options go in their own keys, defined with the
   transport, such as `signal`. They do not go inside the `server` value.
 
@@ -134,7 +141,7 @@ and survives text that apps scan for links:
 - Writers MUST encode `+` as `%2B`, `&` as `%26`, `=` as `%3D`, `#` as `%23`,
   and `%` as `%25`.
 - Readers decode with form decoding, where a bare `+` is a space.
-- Writers write the keys in this order: `server` values, `room`, `message`,
+- Writers write the keys in this order: `server`, `room`, `message`,
   `user`, then other keys in the order that they came.
 
 A room with the ID `#ops/alerts`:
@@ -145,7 +152,7 @@ https://link.apron.chat/#server=wss://chat.example/ws&room=%23ops/alerts
 
 ## 5. Relative links
 
-Message content MAY contain a URI without `server`. It refers to the server
+Message content MAY contain a link without `server`. It refers to the server
 that sent the content:
 
 ```text
@@ -161,13 +168,12 @@ apron:?room=ops&message=1724803200042
 - A client MUST make a relative link absolute, by adding the server, before
   the link leaves its server: when the user copies it, or forwards or quotes
   the content to another server.
-- A bridge MUST make relative links in the content that it relays absolute,
-  or remove them.
+- A bridge MUST make relative links in the content that it relays absolute.
 - link.apron.chat refuses a link without `server`.
 
 ## 6. Clients
 
-- A client recognizes links in all three forms in content, and opens them
+- A client recognizes links in both forms in content, and opens them
   itself, without a browser.
 - Opening a link only shows its place. A client MUST NOT send, post, join,
   sign in, upload, or change a setting because of a link, without an action
@@ -182,8 +188,7 @@ apron:?room=ops&message=1724803200042
 - A client MUST NOT connect to a server that the user has not used only to
   preview a link.
 - A client keeps credentials for one exact server address. A link MUST NOT
-  cause a client to send a credential to a different address, also when the
-  link repeats `server`.
+  cause a client to send a credential to a different address.
 - A client shows the host of the server for every place that it opens, in its
   own interface, apart from content that the server controls.
 - A client shows `room` and `user` values as code: it escapes characters that
@@ -199,9 +204,9 @@ what the link refers to, and offers the clients that can open it.
   itself, except for a remembered choice.
 - A viewer MAY choose "Remember my choice". The page then opens links in the
   viewer's default web client without asking, when all of these are true:
-  - The default can open one of the link's servers.
-  - No server of the link is on the blocklist.
-  - No server of the link is on a loopback host or a private network.
+  - The default can open the link's server.
+  - The link's server is not on the blocklist.
+  - The link's server is not on a loopback host or a private network.
 - The page opens a remembered choice by replacing its own history entry, so
   that going back does not open the client again.
 - The page where the viewer turns off "Remember my choice" never opens a
@@ -251,11 +256,13 @@ exist because of these threats:
   `chat.acrne.co` for `chat.acme.co`, make this easier. The confirmation
   before a new server ([§6](#6-clients)) and the host in ASCII form slow
   this down. They do not stop it.
-- **Credentials sent to the wrong address.** A link can repeat `server` and
-  pair a trusted address with an attacker's address. A client that treated
-  both as one server could send the trusted server's token to the attacker.
-  Only the server can show that two addresses are the same server, over a
-  connection that the client already trusts.
+- **Credentials sent to the wrong address.** A link can name an address
+  close to a trusted server's, such as another port or path on the same
+  host. A client that treated both as one server could send the trusted
+  server's token to the other address. So a client keeps credentials for
+  one exact server address ([§6](#6-clients)). Only the server can show that
+  two addresses are the same server, over a connection that the client
+  already trusts.
 - **Local servers.** Apron servers include coding harnesses and bots that run
   on the user's own computer, often with guest sign-in. A link that could
   post would let anyone run commands there with one click. So links never
@@ -313,11 +320,10 @@ thread        https://link.apron.chat/#server=wss://chat.example/ws&room=t-123
 message       https://link.apron.chat/#server=wss://chat.example/ws&room=general&message=1724803200042
 user          https://link.apron.chat/#server=wss://chat.example/ws&room=general&user=ada
 local server  https://link.apron.chat/#server=ws://localhost:8080/ws&room=agent
-two ways      https://link.apron.chat/#server=webtransport://chat.example/wt&server=wss://chat.example/ws&room=general
 peer          https://link.apron.chat/#server=webrtc:k2Fp9xQ&signal=wss://signal.example/s&room=general
 relative      apron:?room=ops&message=1724803200042
 sign-in       https://link.apron.chat/#server=wss://chat.example/ws&token=Hk41x9&state=q8Rz
 ```
 
-The `webtransport` and `webrtc` examples use reserved transports. Their
-values and keys are not defined yet.
+The `peer` example uses a reserved transport. Its value and keys are not
+defined yet.
