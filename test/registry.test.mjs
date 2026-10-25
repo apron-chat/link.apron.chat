@@ -44,8 +44,11 @@ test('the registry check finds mistakes', () => {
 
 test('opens apron-web with its own address format', () => {
 	const web = registry.clients.find((/** @type {any} */ c) => c.id === 'apron-web');
-	const parsed = link('apron:?server=wss://chat.example/ws&room=%23ops/alerts&thread=t-123&message=1724803200042');
-	assert.equal(webUrl(web.web, parsed, parsed.servers[0]), 'https://web.apron.chat/?server=wss%3A%2F%2Fchat.example%2Fws&room=%23ops%2Falerts&thread=t-123#message=1724803200042');
+	const parsed = link('apron:?server=wss://chat.example/ws&room=%23ops/alerts&message=1724803200042');
+	assert.equal(webUrl(web.web, parsed, parsed.servers[0]), 'https://web.apron.chat/?server=wss%3A%2F%2Fchat.example%2Fws&room=%23ops%2Falerts#message=1724803200042');
+	// A thread is a room: its link opens apron-web at the thread's room_id.
+	const thread = link('apron:?server=wss://chat.example/ws&room=t-123');
+	assert.equal(webUrl(web.web, thread, thread.servers[0]), 'https://web.apron.chat/?server=wss%3A%2F%2Fchat.example%2Fws&room=t-123');
 	const room = link('apron:?server=wss://chat.example/ws&room=general');
 	assert.equal(webUrl(web.web, room, room.servers[0]), 'https://web.apron.chat/?server=wss%3A%2F%2Fchat.example%2Fws&room=general');
 });

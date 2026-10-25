@@ -45,7 +45,7 @@ import { networkOf } from './link.js';
  */
 
 /** Link keys a web client can take. */
-const LINK_KEYS = ['server', 'room', 'thread', 'message'];
+const LINK_KEYS = ['server', 'room', 'message'];
 const CLIENT_KEYS = ['id', 'name', 'description', 'homepage', 'source', 'transports', 'web', 'self_hostable', 'ios', 'android', 'desktop'];
 
 /** The id prefix of a web client that the viewer added. */

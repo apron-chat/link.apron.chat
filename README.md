@@ -1,6 +1,6 @@
 # link.apron.chat
 
-Client-agnostic links to Apron servers, rooms, threads and messages. Copy a
+Client-agnostic links to Apron servers, rooms (threads too) and messages. Copy a
 link from one Apron app, and open it in any other.
 
 ```text
@@ -61,7 +61,7 @@ Add your app to [`clients.json`](clients.json) in a pull request.
 	// value is the name of the key in your app's URL.
 	"web": {
 		"url": "https://my-app.example/open",
-		"query": { "server": "server", "room": "room", "thread": "thread" },
+		"query": { "server": "server", "room": "room" },
 		"fragment": { "message": "message" }
 	},
 

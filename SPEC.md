@@ -1,8 +1,8 @@
 # Apron links
 
-An Apron link refers to an Apron server, or to a room, thread, or message on
-one. Any Apron client can open it. One person copies a link from their app,
-and another person opens it in a different app. A sign-in link
+An Apron link refers to an Apron server, or to a room or message on one. Any
+Apron client can open it. One person copies a link from their app, and
+another person opens it in a different app. A sign-in link
 ([§2.1](#21-sign-in-links)) uses the same form to bring a server's sign-in
 token to whichever app the user signs in with.
 
@@ -42,16 +42,17 @@ their prefix:
 | key | value | count |
 |-----|-------|-------|
 | `server` | where to reach the server ([§3](#3-servers)) | one or more; required |
-| `room` | a `room_id` | at most one |
-| `thread` | the `room_id` of a thread in `room` | at most one; requires `room` |
-| `message` | a `message_id` in `room` or `thread` | at most one; requires `room` |
+| `room` | a `room_id`, also of a thread | at most one |
+| `message` | a `message_id` in `room` | at most one; requires `room` |
 
 - A link without `room` refers to the server.
-- `room` and `thread` are `room_id`s. They MUST NOT be empty, or contain
-  whitespace or control characters.
+- `room` is a `room_id`. It MUST NOT be empty, or contain whitespace or
+  control characters.
+- A thread is a room with a parent. `room` refers to it on its own: a client
+  learns the parent from the room's record, not from the link.
 - `message` is a `message_id`: a positive decimal integer below 2^53, with no
   leading zero.
-- A reader MUST refuse a link that repeats `room`, `thread`, or `message`.
+- A reader MUST refuse a link that repeats `room` or `message`.
   (Two readers that keep different copies would open different places.)
 - Readers ignore other keys. Writers keep the keys that they do not know.
   link.apron.chat passes them on to the client ([§7](#7-linkapronchat)).
@@ -127,8 +128,8 @@ and survives text that apps scan for links:
 - Writers MUST encode `+` as `%2B`, `&` as `%26`, `=` as `%3D`, `#` as `%23`,
   and `%` as `%25`.
 - Readers decode with form decoding, where a bare `+` is a space.
-- Writers write the keys in this order: `server` values, `room`, `thread`,
-  `message`, then other keys in the order that they came.
+- Writers write the keys in this order: `server` values, `room`, `message`,
+  then other keys in the order that they came.
 
 A room with the ID `#ops/alerts`:
 
@@ -179,8 +180,8 @@ apron:?room=ops&message=1724803200042
   link repeats `server`.
 - A client shows the host of the server for every place that it opens, in its
   own interface, apart from content that the server controls.
-- A client shows `room` and `thread` values as code: it escapes characters
-  that hide or reorder text, and cuts long values.
+- A client shows `room` values as code: it escapes characters that hide or
+  reorder text, and cuts long values.
 
 ## 7. link.apron.chat
 
@@ -302,7 +303,7 @@ exist because of these threats:
 ```text
 server        https://link.apron.chat/#server=wss://chat.example/ws
 room          https://link.apron.chat/#server=wss://chat.example/ws&room=general
-thread        https://link.apron.chat/#server=wss://chat.example/ws&room=general&thread=t-123
+thread        https://link.apron.chat/#server=wss://chat.example/ws&room=t-123
 message       https://link.apron.chat/#server=wss://chat.example/ws&room=general&message=1724803200042
 local server  https://link.apron.chat/#server=ws://localhost:8080/ws&room=agent
 two ways      https://link.apron.chat/#server=webtransport://chat.example/wt&server=wss://chat.example/ws&room=general

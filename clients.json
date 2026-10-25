@@ -10,7 +10,7 @@
 			"self_hostable": true,
 			"web": {
 				"url": "https://web.apron.chat/",
-				"query": { "server": "server", "room": "room", "thread": "thread" },
+				"query": { "server": "server", "room": "room" },
 				"fragment": { "message": "message" }
 			}
 		}
