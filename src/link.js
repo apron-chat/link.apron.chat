@@ -21,7 +21,7 @@ export const KNOWN_TRANSPORTS = ['wss', 'ws'];
 export const CREDENTIAL_KEYS = ['token'];
 
 /** Keys that appear at most once. Two parsers that keep different copies would open different places. */
-const SINGLE_KEYS = ['room', 'message'];
+const SINGLE_KEYS = ['room', 'message', 'user'];
 
 /** Keys of a sign-in link that appear at most once: a client given two tokens could use either. */
 const SINGLE_EXTRA_KEYS = ['token', 'state'];
@@ -40,6 +40,7 @@ const SINGLE_EXTRA_KEYS = ['token', 'state'];
  * @property {Server[]} servers in preference order; at least one
  * @property {string} [room] a room, also a thread
  * @property {string} [message] only with `room`
+ * @property {string} [user] a user, only without `room`
  * @property {[string, string][]} extra keys this page doesn't use, kept in order and passed on to the client
  */
 
@@ -50,8 +51,8 @@ const SINGLE_EXTRA_KEYS = ['token', 'state'];
  */
 
 /**
- * @typedef {'no-server' | 'sign-in-without-server' | 'exposed-credential' | 'bad-server' | 'insecure-server' | 'bad-room' | 'bad-message'
- *   | 'message-without-room' | 'duplicate-key' | 'not-a-link'} Reason
+ * @typedef {'no-server' | 'sign-in-without-server' | 'exposed-credential' | 'bad-server' | 'insecure-server' | 'bad-room' | 'bad-message' | 'bad-user'
+ *   | 'message-without-room' | 'user-with-room' | 'duplicate-key' | 'not-a-link'} Reason
  */
 
 /**
@@ -119,10 +120,15 @@ export function parseParams(params) {
 
 	const room = params.get('room') ?? undefined;
 	const message = params.get('message') ?? undefined;
+	const user = params.get('user') ?? undefined;
 	if (room !== undefined && !isOpaqueId(room)) return { kind: 'invalid', reason: 'bad-room', detail: room };
 	if (message !== undefined) {
 		if (room === undefined) return { kind: 'invalid', reason: 'message-without-room' };
 		if (!isMessageId(message)) return { kind: 'invalid', reason: 'bad-message', detail: message };
+	}
+	if (user !== undefined) {
+		if (room !== undefined) return { kind: 'invalid', reason: 'user-with-room' };
+		if (!isOpaqueId(user)) return { kind: 'invalid', reason: 'bad-user', detail: user };
 	}
 
 	/** @type {[string, string][]} */
@@ -133,6 +139,7 @@ export function parseParams(params) {
 			servers,
 			...(room !== undefined ? { room } : {}),
 			...(message !== undefined ? { message } : {}),
+			...(user !== undefined ? { user } : {}),
 			extra
 		}
 	};
@@ -228,7 +235,7 @@ export function formatUri(link, scheme = 'apron') {
 }
 
 /**
- * A link's keys, in a fixed order: servers, room, message, then
+ * A link's keys, in a fixed order: servers, room, message, user, then
  * the rest as they came.
  * @param {Link} link
  */
@@ -237,6 +244,7 @@ export function formatParams(link) {
 	const entries = link.servers.map((server) => ['server', server.value]);
 	if (link.room !== undefined) entries.push(['room', link.room]);
 	if (link.message !== undefined) entries.push(['message', link.message]);
+	if (link.user !== undefined) entries.push(['user', link.user]);
 	entries.push(...link.extra);
 	return entries.map(([key, value]) => `${encodeValue(key)}=${encodeValue(value)}`).join('&');
 }

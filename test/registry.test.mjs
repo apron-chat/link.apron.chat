@@ -62,6 +62,9 @@ test('passes the keys it does not use on, in the fragment only', () => {
 	const renamed = { url: 'https://x.example/', query: { server: 's' }, fragment: { room: 'r' } };
 	const clash = link('apron:?server=wss://chat.example/&room=a&s=wss://evil.example/&r=b&token=t');
 	assert.equal(webUrl(renamed, clash, clash.servers[0]), 'https://x.example/?s=wss%3A%2F%2Fchat.example%2F#r=a&token=t', "never in place of a key the client's format names");
+	// A link key the client's format doesn't map goes on in the fragment too.
+	const user = link('apron:?server=wss://chat.example/ws&user=ada&x=1');
+	assert.equal(webUrl(web.web, user, user.servers[0]), 'https://web.apron.chat/?server=wss%3A%2F%2Fchat.example%2Fws#user=ada&x=1');
 });
 
 test('a remembered choice opens a sign-in link too, with its token', () => {

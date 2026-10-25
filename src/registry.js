@@ -45,7 +45,7 @@ import { networkOf } from './link.js';
  */
 
 /** Link keys a web client can take. */
-const LINK_KEYS = ['server', 'room', 'message'];
+const LINK_KEYS = ['server', 'room', 'message', 'user'];
 const CLIENT_KEYS = ['id', 'name', 'description', 'homepage', 'source', 'transports', 'web', 'self_hostable', 'ios', 'android', 'desktop'];
 
 /** The id prefix of a web client that the viewer added. */
@@ -218,8 +218,8 @@ export function nativeStore(client, platform) {
 /**
  * The address that opens a link in a web client, built from the registry's
  * description with the URL API, so a link's values can only ever be values.
- * The keys the page doesn't use, such as a sign-in link's `token` and
- * `state`, follow in the fragment under their own names (SPEC.md §7): never
+ * The keys the client's format doesn't map, such as a sign-in link's `token`
+ * and `state`, follow in the fragment under their own names (SPEC.md §7): never
  * in the query, which reaches the client's host, and never in place of a
  * key that the client's format already names.
  * @param {WebOpen} web
@@ -239,8 +239,14 @@ export function webUrl(web, link, server) {
 		const v = value(ours);
 		if (v !== undefined) fragment.set(theirs, v);
 	}
+	// Link keys the client's format doesn't map, and keys this page doesn't know, go on under their own names.
+	const mapped = [...Object.keys(web.query ?? {}), ...Object.keys(web.fragment ?? {})];
 	const named = [...Object.values(web.query ?? {}), ...Object.values(web.fragment ?? {})];
-	for (const [key, v] of link.extra) if (!named.includes(key)) fragment.append(key, v);
+	const unmapped = LINK_KEYS.filter((key) => key !== 'server' && !mapped.includes(key)).flatMap((key) => {
+		const v = value(key);
+		return v === undefined ? [] : [/** @type {[string, string]} */ ([key, v])];
+	});
+	for (const [key, v] of [...unmapped, ...link.extra]) if (!named.includes(key)) fragment.append(key, v);
 	url.hash = fragment.toString();
 	return url.toString();
 }

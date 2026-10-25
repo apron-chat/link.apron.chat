@@ -1,7 +1,7 @@
 # Apron links
 
-An Apron link refers to an Apron server, or to a room or message on one. Any
-Apron client can open it. One person copies a link from their app, and
+An Apron link refers to an Apron server, or to a room, message, or user on
+one. Any Apron client can open it. One person copies a link from their app, and
 another person opens it in a different app. A sign-in link
 ([§2.1](#21-sign-in-links)) uses the same form to bring a server's sign-in
 token to whichever app the user signs in with.
@@ -44,15 +44,16 @@ their prefix:
 | `server` | where to reach the server ([§3](#3-servers)) | one or more; required |
 | `room` | a `room_id`, also of a thread | at most one |
 | `message` | a `message_id` in `room` | at most one; requires `room` |
+| `user` | a `user_id` | at most one; not with `room` |
 
-- A link without `room` refers to the server.
-- `room` is a `room_id`. It MUST NOT be empty, or contain whitespace or
-  control characters.
+- A link without `room` or `user` refers to the server.
+- `room` is a `room_id`, and `user` a `user_id`. They MUST NOT be empty, or
+  contain whitespace or control characters.
 - A thread is a room with a parent. `room` refers to it on its own: a client
   learns the parent from the room's record, not from the link.
 - `message` is a `message_id`: a positive decimal integer below 2^53, with no
   leading zero.
-- A reader MUST refuse a link that repeats `room` or `message`.
+- A reader MUST refuse a link that repeats `room`, `message`, or `user`.
   (Two readers that keep different copies would open different places.)
 - Readers ignore other keys. Writers keep the keys that they do not know.
   link.apron.chat passes them on to the client ([§7](#7-linkapronchat)).
@@ -129,7 +130,7 @@ and survives text that apps scan for links:
   and `%` as `%25`.
 - Readers decode with form decoding, where a bare `+` is a space.
 - Writers write the keys in this order: `server` values, `room`, `message`,
-  then other keys in the order that they came.
+  `user`, then other keys in the order that they came.
 
 A room with the ID `#ops/alerts`:
 
@@ -180,8 +181,8 @@ apron:?room=ops&message=1724803200042
   link repeats `server`.
 - A client shows the host of the server for every place that it opens, in its
   own interface, apart from content that the server controls.
-- A client shows `room` values as code: it escapes characters that hide or
-  reorder text, and cuts long values.
+- A client shows `room` and `user` values as code: it escapes characters that
+  hide or reorder text, and cuts long values.
 
 ## 7. link.apron.chat
 
@@ -214,9 +215,9 @@ what the link refers to, and offers the clients that can open it.
 - The page keeps the viewer's default client, the remembered choice, and
   added web clients in the browser only. The default is offered first.
 - The page loads no script, style, or image from another origin.
-- The page passes the keys that it does not use on to the client, under
-  their own names, in the fragment of the client's address, after the keys
-  that the registry maps. It never puts them in the query, which the
+- The page passes the keys that the client's registry entry does not map on
+  to the client, under their own names, in the fragment of the client's
+  address, after the keys that it maps. It never puts them in the query, which the
   client's host receives. It leaves out a key whose name the client's
   format already uses.
 - For a sign-in link, the page removes the link from the address bar before
@@ -305,6 +306,7 @@ server        https://link.apron.chat/#server=wss://chat.example/ws
 room          https://link.apron.chat/#server=wss://chat.example/ws&room=general
 thread        https://link.apron.chat/#server=wss://chat.example/ws&room=t-123
 message       https://link.apron.chat/#server=wss://chat.example/ws&room=general&message=1724803200042
+user          https://link.apron.chat/#server=wss://chat.example/ws&user=ada
 local server  https://link.apron.chat/#server=ws://localhost:8080/ws&room=agent
 two ways      https://link.apron.chat/#server=webtransport://chat.example/wt&server=wss://chat.example/ws&room=general
 peer          https://link.apron.chat/#server=webrtc:k2Fp9xQ&signal=wss://signal.example/s&room=general

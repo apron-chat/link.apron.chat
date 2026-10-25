@@ -145,6 +145,12 @@ test('networks', () => {
 test('IDs are checked', () => {
 	assert.equal(parseLink('apron:?server=wss://h/&room=a%20b').kind, 'invalid');
 	assert.equal(parseLink('apron:?server=wss://h/&room=').kind, 'invalid');
+	// A user, which a link with a room can't also have.
+	assert.equal(link('apron:?server=wss://h/&user=ada').user, 'ada');
+	assert.equal(formatLink(link('apron:?server=wss://h/&x=1&user=ada')), 'https://link.apron.chat/#server=wss://h/&user=ada&x=1');
+	assert.deepEqual(parseLink('apron:?server=wss://h/&room=r&user=ada'), { kind: 'invalid', reason: 'user-with-room' });
+	assert.equal(parseLink('apron:?server=wss://h/&user=a%20b').kind, 'invalid');
+	assert.deepEqual(parseLink('apron:?server=wss://h/&user=a&user=b'), { kind: 'invalid', reason: 'duplicate-key', detail: 'user' });
 	// A thread is a room: `thread` is no key of a link, so it is passed on like any other.
 	assert.deepEqual(link('apron:?server=wss://h/&room=t-1&thread=t-2').extra, [['thread', 't-2']]);
 	assert.deepEqual(parseLink('apron:?server=wss://h/&message=1'), { kind: 'invalid', reason: 'message-without-room' });

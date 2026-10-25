@@ -41,6 +41,8 @@ const REASONS = {
 	'bad-room': "The room in this link isn't a valid room ID.",
 	'bad-message': "The message in this link isn't a valid message ID.",
 	'message-without-room': 'This link has a message but no room.',
+	'bad-user': "The user in this link isn't a valid user ID.",
+	'user-with-room': 'This link has both a user and a room.',
 	'duplicate-key': 'This link gives the same key more than once.',
 	'not-a-link': "That isn't an Apron link."
 };
@@ -226,6 +228,7 @@ function destinationView(link) {
 	for (const other of others) serverDetail.push(h('div', { class: 'url' }, `or ${visible(other.value, 120)}`));
 	row('Server', ...serverDetail);
 	if (link.room !== undefined) row('Room', h('code', {}, visible(link.room)));
+	if (link.user !== undefined) row('User', h('code', {}, visible(link.user)));
 	if (link.message !== undefined) {
 		const time = messageTime(link.message);
 		row('Message', h('time', { datetime: time.toISOString() }, time.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })), h('code', { class: 'id' }, link.message));
