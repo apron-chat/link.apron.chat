@@ -45,31 +45,31 @@ test('the registry check finds mistakes', () => {
 test('opens apron-web with its own address format', () => {
 	const web = registry.clients.find((/** @type {any} */ c) => c.id === 'apron-web');
 	const parsed = link('apron:?server=wss://chat.example/ws&room=%23ops/alerts&message=1724803200042');
-	assert.equal(webUrl(web.web, parsed, parsed.servers[0]), 'https://web.apron.chat/?server=wss%3A%2F%2Fchat.example%2Fws&room=%23ops%2Falerts#message=1724803200042');
+	assert.equal(webUrl(web.web, parsed, parsed.servers[0]), 'https://web.apron.chat/#server=wss%3A%2F%2Fchat.example%2Fws&room=%23ops%2Falerts&message=1724803200042');
 	// A thread is a room: its link opens apron-web at the thread's room_id.
 	const thread = link('apron:?server=wss://chat.example/ws&room=t-123');
-	assert.equal(webUrl(web.web, thread, thread.servers[0]), 'https://web.apron.chat/?server=wss%3A%2F%2Fchat.example%2Fws&room=t-123');
+	assert.equal(webUrl(web.web, thread, thread.servers[0]), 'https://web.apron.chat/#server=wss%3A%2F%2Fchat.example%2Fws&room=t-123');
 	const room = link('apron:?server=wss://chat.example/ws&room=general');
-	assert.equal(webUrl(web.web, room, room.servers[0]), 'https://web.apron.chat/?server=wss%3A%2F%2Fchat.example%2Fws&room=general');
+	assert.equal(webUrl(web.web, room, room.servers[0]), 'https://web.apron.chat/#server=wss%3A%2F%2Fchat.example%2Fws&room=general');
 });
 
 test('passes the keys it does not use on, in the fragment only', () => {
 	const web = registry.clients.find((/** @type {any} */ c) => c.id === 'apron-web');
 	const signIn = link('https://link.apron.chat/#server=wss://chat.example/ws&token=Hk41%2Bx9&state=q8Rz');
-	assert.equal(webUrl(web.web, signIn, signIn.servers[0]), 'https://web.apron.chat/?server=wss%3A%2F%2Fchat.example%2Fws#token=Hk41%2Bx9&state=q8Rz');
+	assert.equal(webUrl(web.web, signIn, signIn.servers[0]), 'https://web.apron.chat/#server=wss%3A%2F%2Fchat.example%2Fws&token=Hk41%2Bx9&state=q8Rz');
 	const message = link('apron:?server=wss://chat.example/ws&room=general&message=1724803200042&signal=wss://s.example/&signal=wss://t.example/');
-	assert.equal(webUrl(web.web, message, message.servers[0]), 'https://web.apron.chat/?server=wss%3A%2F%2Fchat.example%2Fws&room=general#message=1724803200042&signal=wss%3A%2F%2Fs.example%2F&signal=wss%3A%2F%2Ft.example%2F');
+	assert.equal(webUrl(web.web, message, message.servers[0]), 'https://web.apron.chat/#server=wss%3A%2F%2Fchat.example%2Fws&room=general&message=1724803200042&signal=wss%3A%2F%2Fs.example%2F&signal=wss%3A%2F%2Ft.example%2F');
 	const renamed = { url: 'https://x.example/', query: { server: 's' }, fragment: { room: 'r' } };
 	const clash = link('apron:?server=wss://chat.example/&room=a&s=wss://evil.example/&r=b&token=t');
 	assert.equal(webUrl(renamed, clash, clash.servers[0]), 'https://x.example/?s=wss%3A%2F%2Fchat.example%2F#r=a&token=t', "never in place of a key the client's format names");
 	// A link key the client's format doesn't map goes on in the fragment too.
 	const user = link('apron:?server=wss://chat.example/ws&user=ada&x=1');
-	assert.equal(webUrl(web.web, user, user.servers[0]), 'https://web.apron.chat/?server=wss%3A%2F%2Fchat.example%2Fws#user=ada&x=1');
+	assert.equal(webUrl(web.web, user, user.servers[0]), 'https://web.apron.chat/#server=wss%3A%2F%2Fchat.example%2Fws&user=ada&x=1');
 });
 
 test('a remembered choice opens a sign-in link too, with its token', () => {
 	const signIn = link('https://link.apron.chat/#server=wss://chat.example/ws&token=t&state=s');
-	assert.equal(autoOpen(signIn, registry, [], 'apron-web')?.href, 'https://web.apron.chat/?server=wss%3A%2F%2Fchat.example%2Fws#token=t&state=s');
+	assert.equal(autoOpen(signIn, registry, [], 'apron-web')?.href, 'https://web.apron.chat/#server=wss%3A%2F%2Fchat.example%2Fws&token=t&state=s');
 	assert.equal(autoOpen(link('https://link.apron.chat/#server=ws://localhost:8080/&token=t'), registry, [], 'apron-web'), undefined, 'this device still asks');
 });
 
@@ -141,8 +141,8 @@ test('a self-hosted web app opens links in the format of the client it runs', ()
 
 	const parsed = link('apron:?server=wss://chat.acme.com/ws&room=general&message=1724803200042');
 	assert.deepEqual(offersFor(parsed, all, 'desktop').map((o) => o.href), [
-		'https://chat.acme.com/apron/?server=wss%3A%2F%2Fchat.acme.com%2Fws&room=general#message=1724803200042',
-		'https://web.apron.chat/?server=wss%3A%2F%2Fchat.acme.com%2Fws&room=general#message=1724803200042'
+		'https://chat.acme.com/apron/#server=wss%3A%2F%2Fchat.acme.com%2Fws&room=general&message=1724803200042',
+		'https://web.apron.chat/#server=wss%3A%2F%2Fchat.acme.com%2Fws&room=general&message=1724803200042'
 	]);
 	assert.equal(offersFor(parsed, all, 'desktop', 'apron-web')[0].client.id, 'apron-web', 'the default comes first');
 });
@@ -156,8 +156,8 @@ test('a remembered choice opens public servers only', () => {
 	const mine = 'custom:https://chat.acme.com/';
 	const open = (/** @type {string} */ input, /** @type {string | undefined} */ preferred = mine, blocked = /** @type {any[]} */ ([])) => autoOpen(link(input), all, blocked, preferred)?.href;
 	assert.equal(autoOpen(link('apron:?server=wss://chat.example/ws'), all, [], undefined), undefined, 'no default');
-	assert.equal(open('apron:?server=wss://chat.example/ws&room=general'), 'https://chat.acme.com/?server=wss%3A%2F%2Fchat.example%2Fws&room=general');
-	assert.equal(open('apron:?server=wss://chat.example/ws', 'apron-web'), 'https://web.apron.chat/?server=wss%3A%2F%2Fchat.example%2Fws');
+	assert.equal(open('apron:?server=wss://chat.example/ws&room=general'), 'https://chat.acme.com/#server=wss%3A%2F%2Fchat.example%2Fws&room=general');
+	assert.equal(open('apron:?server=wss://chat.example/ws', 'apron-web'), 'https://web.apron.chat/#server=wss%3A%2F%2Fchat.example%2Fws');
 	assert.equal(open('apron:?server=wss://chat.example/ws', 'custom:https://removed.example/'), undefined, 'default no longer there');
 	assert.equal(open('apron:?server=ws://localhost:8080/ws'), undefined, 'this device');
 	assert.equal(open('apron:?server=wss://nas.local/ws'), undefined, 'private network');

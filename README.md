@@ -77,6 +77,8 @@ Add your app to [`clients.json`](clients.json) in a pull request.
 }
 ```
 
+Map keys to the fragment where you can: your app's host never receives
+it, so it doesn't learn which servers and rooms people open.
 Keys you don't map, such as `user`, arrive in your URL's fragment under
 their own names, after the keys you map. A sign-in link
 ([SPEC.md §2.1](SPEC.md#21-sign-in-links)) arrives as, for example,
