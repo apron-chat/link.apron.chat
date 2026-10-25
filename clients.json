@@ -23,8 +23,7 @@
 			"self_hostable": true,
 			"web": {
 				"url": "sidetable://open",
-				"query": { "server": "server", "room": "room" },
-				"fragment": { "message": "message" }
+				"query": { "server": "server", "room": "room",  "message": "message"  }
 			}
 		}
 	]
