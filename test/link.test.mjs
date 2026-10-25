@@ -26,10 +26,10 @@ test('reads the three forms alike', () => {
 });
 
 test('writes readable links that read back the same', () => {
-	const parsed = link('apron:?server=wss://chat.example/ws&room=%23ops/alerts&thread=t-123&message=1724803200042');
-	assert.equal(formatLink(parsed), 'https://link.apron.chat/#server=wss://chat.example/ws&room=%23ops/alerts&thread=t-123&message=1724803200042');
-	assert.equal(formatUri(parsed), 'apron:?server=wss://chat.example/ws&room=%23ops/alerts&thread=t-123&message=1724803200042');
-	assert.equal(formatUri(parsed, 'web+apron'), 'web+apron:?server=wss://chat.example/ws&room=%23ops/alerts&thread=t-123&message=1724803200042');
+	const parsed = link('apron:?server=wss://chat.example/ws&room=%23ops/alerts&message=1724803200042');
+	assert.equal(formatLink(parsed), 'https://link.apron.chat/#server=wss://chat.example/ws&room=%23ops/alerts&message=1724803200042');
+	assert.equal(formatUri(parsed), 'apron:?server=wss://chat.example/ws&room=%23ops/alerts&message=1724803200042');
+	assert.equal(formatUri(parsed, 'web+apron'), 'web+apron:?server=wss://chat.example/ws&room=%23ops/alerts&message=1724803200042');
 	assert.deepEqual(link(formatLink(parsed)), parsed);
 });
 
@@ -45,10 +45,10 @@ test('a bare + is a space, so an unencoded composite scheme is refused', () => {
 });
 
 test('reads the query too, for a web.apron.chat address with its domain swapped', () => {
-	const parsed = parseLocation({ search: '?server=wss%3A%2F%2Fchat.example%2Fws&room=general&thread=t-1', hash: '#message=1724803200042' });
+	const parsed = parseLocation({ search: '?server=wss%3A%2F%2Fchat.example%2Fws&room=t-1', hash: '#message=1724803200042' });
 	assert.equal(parsed.kind, 'link');
 	if (parsed.kind !== 'link') return;
-	assert.equal(parsed.link.thread, 't-1');
+	assert.equal(parsed.link.room, 't-1');
 	assert.equal(parsed.link.message, '1724803200042');
 });
 
@@ -145,7 +145,14 @@ test('networks', () => {
 test('IDs are checked', () => {
 	assert.equal(parseLink('apron:?server=wss://h/&room=a%20b').kind, 'invalid');
 	assert.equal(parseLink('apron:?server=wss://h/&room=').kind, 'invalid');
-	assert.deepEqual(parseLink('apron:?server=wss://h/&thread=t'), { kind: 'invalid', reason: 'thread-without-room' });
+	// A user, also as a member of a room.
+	assert.equal(link('apron:?server=wss://h/&user=ada').user, 'ada');
+	assert.deepEqual(link('apron:?server=wss://h/&room=general&user=ada'), { servers: link('apron:?server=wss://h/').servers, room: 'general', user: 'ada', extra: [] });
+	assert.equal(formatLink(link('apron:?server=wss://h/&x=1&user=ada')), 'https://link.apron.chat/#server=wss://h/&user=ada&x=1');
+	assert.equal(parseLink('apron:?server=wss://h/&user=a%20b').kind, 'invalid');
+	assert.deepEqual(parseLink('apron:?server=wss://h/&user=a&user=b'), { kind: 'invalid', reason: 'duplicate-key', detail: 'user' });
+	// A thread is a room: `thread` is no key of a link, so it is passed on like any other.
+	assert.deepEqual(link('apron:?server=wss://h/&room=t-1&thread=t-2').extra, [['thread', 't-2']]);
 	assert.deepEqual(parseLink('apron:?server=wss://h/&message=1'), { kind: 'invalid', reason: 'message-without-room' });
 	for (const bad of ['0', '01', 'abc', '1.5', '9007199254740992']) {
 		assert.equal(parseLink(`apron:?server=wss://h/&room=r&message=${bad}`).kind, 'invalid', bad);

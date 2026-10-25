@@ -1,6 +1,6 @@
 # link.apron.chat
 
-Client-agnostic links to Apron servers, rooms, threads and messages. Copy a
+Client-agnostic links to Apron servers, rooms (threads too), messages and users. Copy a
 link from one Apron app, and open it in any other.
 
 ```text
@@ -61,7 +61,7 @@ Add your app to [`clients.json`](clients.json) in a pull request.
 	// value is the name of the key in your app's URL.
 	"web": {
 		"url": "https://my-app.example/open",
-		"query": { "server": "server", "room": "room", "thread": "thread" },
+		"query": { "server": "server", "room": "room" },
 		"fragment": { "message": "message" }
 	},
 
@@ -77,8 +77,8 @@ Add your app to [`clients.json`](clients.json) in a pull request.
 }
 ```
 
-Keys the page doesn't use arrive in your URL's fragment under their own
-names, after the keys you map. A sign-in link
+Keys you don't map, such as `user`, arrive in your URL's fragment under
+their own names, after the keys you map. A sign-in link
 ([SPEC.md §2.1](SPEC.md#21-sign-in-links)) arrives as, for example,
 `https://my-app.example/open?server=wss%3A%2F%2Fchat.example%2Fws#token=…&state=…`.
 A key whose name your format already uses is not passed on.
