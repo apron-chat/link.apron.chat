@@ -8,7 +8,7 @@
  * forbids the HTML sinks (Trusted Types), because a link chooses every value.
  */
 import { formatLink, formatParams, formatUri, hasCredential, messageTime, parseLink, parseLocation, signsIn, visible } from './link.js';
-import { autoOpen, blockedEntry, checkWebAppUrl, CUSTOM_PREFIX, detectPlatform, nativeStore, offersFor, selfHostable, unsupportedTransports, withCustom } from './registry.js';
+import { autoOpen, blockedEntry, checkWebAppUrl, CUSTOM_PREFIX, detectPlatform, nativeStore, offersFor, selfHostable, unsupportedTransport, withCustom } from './registry.js';
 import { blocked, registry } from './data.js';
 
 /** @typedef {import('./link.js').Link} Link */
@@ -42,7 +42,6 @@ const REASONS = {
 	'bad-message': "The message in this link isn't a valid message ID.",
 	'message-without-room': 'This link has a message but no room.',
 	'bad-user': "The user in this link isn't a valid user ID.",
-	'duplicate-key': 'This link gives the same key more than once.',
 	'not-a-link': "That isn't an Apron link."
 };
 
@@ -135,7 +134,7 @@ function render() {
 	if (parsed.kind === 'empty') {
 		main.replaceChildren(landingView());
 	} else if (parsed.kind === 'invalid') {
-		main.replaceChildren(invalidView(REASONS[parsed.reason], parsed.reason === 'duplicate-key' ? parsed.detail : undefined));
+		main.replaceChildren(invalidView(REASONS[parsed.reason]));
 	} else {
 		if (signsIn(parsed.link)) held = parsed.link;
 		else {
@@ -160,7 +159,7 @@ function linkView(link) {
 	const signIn = signsIn(link);
 	const card = h('section', { class: 'card' }, h('h1', {}, signIn ? 'Sign in with an Apron app' : 'Open in an Apron app'), destinationView(link));
 
-	const network = link.servers[0].network;
+	const network = link.server.network;
 	if (block) {
 		card.append(notice('danger', `link.apron.chat has blocked this server: ${block.reason}`));
 		if (!signIn) card.append(copyRow(link));
@@ -203,8 +202,8 @@ function linkView(link) {
 		}
 	}
 	else {
-		const missing = unsupportedTransports(link, clients);
-		card.append(notice('info', missing.length ? `No Apron app listed here supports ${missing.join(', ')} yet. Copy the link into an app that does.` : 'No Apron app listed here can open this link yet.'));
+		const missing = unsupportedTransport(link, clients);
+		card.append(notice('info', missing ? `No Apron app listed here supports the ${missing} transport yet. Copy the link into an app that does.` : 'No Apron app listed here can open this link yet.'));
 	}
 
 	if (selfHostable(registry).length) {
@@ -217,14 +216,13 @@ function linkView(link) {
 
 /** @param {Link} link */
 function destinationView(link) {
-	const [first, ...others] = link.servers;
+	const { server } = link;
 	const rows = h('dl', { class: 'destination' });
 	const row = (/** @type {string} */ term, /** @type {Node[]} */ ...details) => rows.append(h('div', { class: 'row' }, h('dt', {}, term), h('dd', {}, ...details)));
 
-	const serverDetail = [h('div', { class: 'host' }, visible(first.host ?? first.value))];
-	if (first.host) serverDetail.push(h('div', { class: 'url' }, visible(first.value, 120)));
-	else serverDetail.push(h('div', { class: 'url' }, `${first.transport} transport`));
-	for (const other of others) serverDetail.push(h('div', { class: 'url' }, `or ${visible(other.value, 120)}`));
+	const serverDetail = [h('div', { class: 'host' }, visible(server.host ?? server.value))];
+	if (server.host) serverDetail.push(h('div', { class: 'url' }, visible(server.value, 120)));
+	else serverDetail.push(h('div', { class: 'url' }, `${server.transport} transport`));
 	row('Server', ...serverDetail);
 	if (link.room !== undefined) row('Room', h('code', {}, visible(link.room)));
 	if (link.user !== undefined) row('User', h('code', {}, visible(link.user)));
@@ -259,8 +257,8 @@ function notice(tone, /** @type {string} */ text) {
 	return h('p', { class: `notice ${tone}`, role: tone === 'info' ? undefined : 'alert' }, text);
 }
 
-function invalidView(/** @type {string} */ reason, /** @type {string | undefined} */ key) {
-	return h('section', { class: 'card' }, h('h1', {}, "This link doesn't work"), notice('danger', key ? `${reason} (${visible(key, 20)})` : reason), pasteForm());
+function invalidView(/** @type {string} */ reason) {
+	return h('section', { class: 'card' }, h('h1', {}, "This link doesn't work"), notice('danger', reason), pasteForm());
 }
 
 function landingView() {

@@ -9,17 +9,16 @@ function link(input) {
 	return /** @type {Extract<typeof parsed, { kind: 'link' }>} */ (parsed).link;
 }
 
-test('reads the three forms alike', () => {
+test('reads both forms alike', () => {
 	const forms = [
 		'https://link.apron.chat/#server=wss://chat.example/ws&room=general&message=1724803200042',
 		'apron:?server=wss://chat.example/ws&room=general&message=1724803200042',
-		'web+apron:?server=wss://chat.example/ws&room=general&message=1724803200042',
 		'APRON:server=wss%3A%2F%2Fchat.example%2Fws&room=general&message=1724803200042',
 		'#server=wss://chat.example/ws&room=general&message=1724803200042'
 	];
 	for (const form of forms) {
 		const parsed = link(form);
-		assert.deepEqual(parsed.servers, [{ value: 'wss://chat.example/ws', transport: 'wss', known: true, host: 'chat.example' }]);
+		assert.deepEqual(parsed.server, { value: 'wss://chat.example/ws', transport: 'wss', known: true, host: 'chat.example' });
 		assert.equal(parsed.room, 'general');
 		assert.equal(parsed.message, '1724803200042');
 	}
@@ -29,7 +28,6 @@ test('writes readable links that read back the same', () => {
 	const parsed = link('apron:?server=wss://chat.example/ws&room=%23ops/alerts&message=1724803200042');
 	assert.equal(formatLink(parsed), 'https://link.apron.chat/#server=wss://chat.example/ws&room=%23ops/alerts&message=1724803200042');
 	assert.equal(formatUri(parsed), 'apron:?server=wss://chat.example/ws&room=%23ops/alerts&message=1724803200042');
-	assert.equal(formatUri(parsed, 'web+apron'), 'web+apron:?server=wss://chat.example/ws&room=%23ops/alerts&message=1724803200042');
 	assert.deepEqual(link(formatLink(parsed)), parsed);
 });
 
@@ -60,7 +58,7 @@ test('an empty link is the landing page', () => {
 
 test('a sign-in link is a link that carries its token on', () => {
 	const parsed = link('https://link.apron.chat/#token=Hk41x9&state=q8Rz&server=wss%3A%2F%2Fchat.example%2F');
-	assert.deepEqual(parsed.servers.map((s) => s.value), ['wss://chat.example/']);
+	assert.equal(parsed.server.value, 'wss://chat.example/');
 	assert.deepEqual(parsed.extra, [['token', 'Hk41x9'], ['state', 'q8Rz']]);
 	assert.ok(signsIn(parsed));
 	assert.ok(!signsIn(link('apron:?server=wss://chat.example/&state=q8Rz')), 'state alone is no credential');
@@ -70,9 +68,11 @@ test('a sign-in link keeps its token in the fragment, and names its server', () 
 	assert.deepEqual(parseLocation({ search: '?token=x&server=wss://chat.example/', hash: '' }), { kind: 'invalid', reason: 'exposed-credential' });
 	assert.deepEqual(parseLink('https://link.apron.chat/?token=x#server=wss://chat.example/'), { kind: 'invalid', reason: 'exposed-credential' });
 	assert.deepEqual(parseLink('https://link.apron.chat/#token=x&state=y'), { kind: 'invalid', reason: 'sign-in-without-server' });
-	assert.deepEqual(parseLink('apron:?server=wss://chat.example/&token=a&token=b'), { kind: 'invalid', reason: 'duplicate-key', detail: 'token' });
-	assert.deepEqual(parseLink('apron:?server=wss://chat.example/&token=a&state=b&state=c'), { kind: 'invalid', reason: 'duplicate-key', detail: 'state' });
-	assert.deepEqual(parseLink('apron:?server=wss://chat.example/&server=wss://evil.example/&token=a'), { kind: 'invalid', reason: 'duplicate-key', detail: 'server' }, 'a token is for one server');
+});
+
+test('a sign-in link passes on the first token and state only', () => {
+	assert.deepEqual(link('apron:?server=wss://chat.example/&token=a&x=1&token=b&state=c&state=d').extra, [['token', 'a'], ['x', '1'], ['state', 'c']]);
+	assert.equal(link('apron:?server=wss://chat.example/&server=wss://evil.example/&token=a').server.value, 'wss://chat.example/', 'a token is for one server');
 });
 
 test('finds a credential in any address, valid link or not', () => {
@@ -86,22 +86,26 @@ test('the server is required', () => {
 	assert.deepEqual(parseLink('apron:?room=ops&message=1724803200042'), { kind: 'invalid', reason: 'no-server' });
 });
 
-test('a single-valued key given twice is refused', () => {
-	assert.deepEqual(parseLink('apron:?server=wss://a.example/&room=a&room=b'), { kind: 'invalid', reason: 'duplicate-key', detail: 'room' });
+test('readers use the first value of a repeated key', () => {
+	const parsed = link('apron:?server=wss://a.example/&room=a&server=wss://b.example/&room=b&message=1&message=2&user=x&user=y');
+	assert.equal(formatUri(parsed), 'apron:?server=wss://a.example/&room=a&message=1&user=x');
+	assert.equal(link('apron:?server=webrtc:k2Fp9xQ&server=wss://chat.example/ws').server.transport, 'webrtc', 'a later server is no fallback');
+	assert.deepEqual(parseLink('apron:?server=bad&server=wss://chat.example/'), { kind: 'invalid', reason: 'bad-server', detail: 'bad' }, 'the first server is the one checked');
 });
 
-test('servers repeat, in order, and unknown transports are kept', () => {
-	const parsed = link('apron:?server=webtransport://chat.example/wt&server=wss://chat.example/ws&server=webrtc:k2Fp9xQ&signal=wss://signal.example/s&room=general');
-	assert.deepEqual(
-		parsed.servers.map((s) => [s.transport, s.known, s.value]),
-		[
-			['webtransport', false, 'webtransport://chat.example/wt'],
-			['wss', true, 'wss://chat.example/ws'],
-			['webrtc', false, 'webrtc:k2Fp9xQ']
-		]
-	);
+test('the fragment wins over the query', () => {
+	const parsed = parseLocation({ search: '?server=wss://query.example/&room=q', hash: '#server=wss://fragment.example/&room=f' });
+	assert.equal(parsed.kind, 'link');
+	if (parsed.kind !== 'link') return;
+	assert.equal(parsed.link.server.value, 'wss://fragment.example/');
+	assert.equal(parsed.link.room, 'f');
+});
+
+test('unknown transports are kept', () => {
+	const parsed = link('apron:?server=webrtc:k2Fp9xQ&signal=wss://signal.example/s&room=general');
+	assert.deepEqual([parsed.server.transport, parsed.server.known, parsed.server.value], ['webrtc', false, 'webrtc:k2Fp9xQ']);
 	assert.deepEqual(parsed.extra, [['signal', 'wss://signal.example/s']]);
-	assert.equal(formatUri(parsed), 'apron:?server=webtransport://chat.example/wt&server=wss://chat.example/ws&server=webrtc:k2Fp9xQ&room=general&signal=wss://signal.example/s');
+	assert.equal(formatUri(parsed), 'apron:?server=webrtc:k2Fp9xQ&room=general&signal=wss://signal.example/s');
 });
 
 test('server URLs are checked', () => {
@@ -147,10 +151,9 @@ test('IDs are checked', () => {
 	assert.equal(parseLink('apron:?server=wss://h/&room=').kind, 'invalid');
 	// A user, also as a member of a room.
 	assert.equal(link('apron:?server=wss://h/&user=ada').user, 'ada');
-	assert.deepEqual(link('apron:?server=wss://h/&room=general&user=ada'), { servers: link('apron:?server=wss://h/').servers, room: 'general', user: 'ada', extra: [] });
+	assert.deepEqual(link('apron:?server=wss://h/&room=general&user=ada'), { server: link('apron:?server=wss://h/').server, room: 'general', user: 'ada', extra: [] });
 	assert.equal(formatLink(link('apron:?server=wss://h/&x=1&user=ada')), 'https://link.apron.chat/#server=wss://h/&user=ada&x=1');
 	assert.equal(parseLink('apron:?server=wss://h/&user=a%20b').kind, 'invalid');
-	assert.deepEqual(parseLink('apron:?server=wss://h/&user=a&user=b'), { kind: 'invalid', reason: 'duplicate-key', detail: 'user' });
 	// A thread is a room: `thread` is no key of a link, so it is passed on like any other.
 	assert.deepEqual(link('apron:?server=wss://h/&room=t-1&thread=t-2').extra, [['thread', 't-2']]);
 	assert.deepEqual(parseLink('apron:?server=wss://h/&message=1'), { kind: 'invalid', reason: 'message-without-room' });
@@ -165,6 +168,7 @@ test('other text is not a link', () => {
 	assert.deepEqual(parseLink(''), { kind: 'invalid', reason: 'not-a-link' });
 	assert.deepEqual(parseLink('https://web.apron.chat/?server=wss://h/'), { kind: 'invalid', reason: 'not-a-link' });
 	assert.deepEqual(parseLink('https://link.apron.chat.evil.example/#server=wss://h/'), { kind: 'invalid', reason: 'not-a-link' });
+	assert.deepEqual(parseLink('web+apron:?server=wss://h/'), { kind: 'invalid', reason: 'not-a-link' }, 'no longer a form');
 });
 
 test('shows hidden and reordering characters, and cuts long values', () => {

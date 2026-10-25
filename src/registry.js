@@ -8,7 +8,6 @@
 import { networkOf } from './link.js';
 
 /** @typedef {import('./link.js').Link} Link */
-/** @typedef {import('./link.js').Server} Server */
 
 /**
  * @typedef {object} WebOpen how a web client opens a link: its keys, renamed, in its URL's query or fragment
@@ -141,20 +140,16 @@ export function checkBlocklist(data) {
 }
 
 /**
- * The blocklist entry that covers one of a link's servers: its host, or a
- * domain above it.
+ * The blocklist entry that covers a link's server: its host, or a domain
+ * above it.
  * @param {Link} link
  * @param {Blocked[]} blocked
  * @returns {Blocked | undefined}
  */
 export function blockedEntry(link, blocked) {
-	for (const server of link.servers) {
-		if (!server.host) continue;
-		const hostname = new URL(server.value).hostname;
-		const entry = blocked.find((b) => hostname === b.host || hostname.endsWith(`.${b.host}`));
-		if (entry) return entry;
-	}
-	return undefined;
+	if (!link.server.host) return undefined;
+	const hostname = new URL(link.server.value).hostname;
+	return blocked.find((b) => hostname === b.host || hostname.endsWith(`.${b.host}`));
 }
 
 /**
@@ -171,13 +166,12 @@ export function detectPlatform(nav) {
 }
 
 /**
- * The first of a link's servers that a client can open.
+ * Whether a client can open a link's server.
  * @param {Client} client
  * @param {Link} link
- * @returns {Server | undefined}
  */
-export function serverFor(client, link) {
-	return link.servers.find((server) => server.known && client.transports.includes(server.transport));
+export function canOpen(client, link) {
+	return link.server.known && client.transports.includes(link.server.transport);
 }
 
 /**
@@ -195,9 +189,8 @@ export function offersFor(link, registry, platform, preferred) {
 	/** @type {Offer[]} */
 	const offers = [];
 	for (const client of clients) {
-		const server = serverFor(client, link);
-		if (!server) continue;
-		if (client.web) offers.push({ client, kind: 'web', href: webUrl(client.web, link, server) });
+		if (!canOpen(client, link)) continue;
+		if (client.web) offers.push({ client, kind: 'web', href: webUrl(client.web, link) });
 		const store = nativeStore(client, platform);
 		if (store) offers.push({ client, kind: 'native', href: store });
 	}
@@ -224,12 +217,11 @@ export function nativeStore(client, platform) {
  * key that the client's format already names.
  * @param {WebOpen} web
  * @param {Link} link
- * @param {Server} server the one of the link's servers to pass
  */
-export function webUrl(web, link, server) {
+export function webUrl(web, link) {
 	const url = new URL(web.url);
 	/** @param {string} key */
-	const value = (key) => (key === 'server' ? server.value : /** @type {Record<string, string | undefined>} */ (/** @type {unknown} */ (link))[key]);
+	const value = (key) => (key === 'server' ? link.server.value : /** @type {Record<string, string | undefined>} */ (/** @type {unknown} */ (link))[key]);
 	for (const [ours, theirs] of Object.entries(web.query ?? {})) {
 		const v = value(ours);
 		if (v !== undefined) url.searchParams.set(theirs, v);
@@ -264,10 +256,8 @@ export function webUrl(web, link, server) {
  */
 export function autoOpen(link, registry, blocked, preferred) {
 	const client = registry.clients.find((c) => c.id === preferred);
-	if (!client?.web || blockedEntry(link, blocked)) return undefined;
-	const server = serverFor(client, link);
-	if (!server || link.servers.some((s) => s.network)) return undefined;
-	return { client, href: webUrl(client.web, link, server) };
+	if (!client?.web || blockedEntry(link, blocked) || !canOpen(client, link) || link.server.network) return undefined;
+	return { client, href: webUrl(client.web, link) };
 }
 
 /**
@@ -339,13 +329,14 @@ export function withCustom(registry, saved) {
 }
 
 /**
- * The transports a link uses that no client in the registry supports.
+ * The transport a link needs, when no client in the registry supports it.
  * @param {Link} link
  * @param {Registry} registry
+ * @returns {string | undefined}
  */
-export function unsupportedTransports(link, registry) {
-	const supported = new Set(registry.clients.flatMap((client) => client.transports));
-	return [...new Set(link.servers.map((server) => server.transport))].filter((transport) => !supported.has(transport));
+export function unsupportedTransport(link, registry) {
+	const { transport } = link.server;
+	return registry.clients.some((client) => client.transports.includes(transport)) ? undefined : transport;
 }
 
 /**

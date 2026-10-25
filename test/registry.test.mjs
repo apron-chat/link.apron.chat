@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { parseLink } from '../src/link.js';
-import { appleAppSiteAssociation, assetLinks, autoOpen, blockedEntry, checkBlocklist, checkRegistry, checkWebAppUrl, customClient, detectPlatform, offersFor, unsupportedTransports, webUrl, withCustom } from '../src/registry.js';
+import { appleAppSiteAssociation, assetLinks, autoOpen, blockedEntry, checkBlocklist, checkRegistry, checkWebAppUrl, customClient, detectPlatform, offersFor, unsupportedTransport, webUrl, withCustom } from '../src/registry.js';
 
 const registry = JSON.parse(readFileSync(new URL('../clients.json', import.meta.url), 'utf8'));
 const blocklist = JSON.parse(readFileSync(new URL('../blocked.json', import.meta.url), 'utf8'));
@@ -45,26 +45,26 @@ test('the registry check finds mistakes', () => {
 test('opens apron-web with its own address format', () => {
 	const web = registry.clients.find((/** @type {any} */ c) => c.id === 'apron-web');
 	const parsed = link('apron:?server=wss://chat.example/ws&room=%23ops/alerts&message=1724803200042');
-	assert.equal(webUrl(web.web, parsed, parsed.servers[0]), 'https://web.apron.chat/#server=wss%3A%2F%2Fchat.example%2Fws&room=%23ops%2Falerts&message=1724803200042');
+	assert.equal(webUrl(web.web, parsed), 'https://web.apron.chat/#server=wss%3A%2F%2Fchat.example%2Fws&room=%23ops%2Falerts&message=1724803200042');
 	// A thread is a room: its link opens apron-web at the thread's room_id.
 	const thread = link('apron:?server=wss://chat.example/ws&room=t-123');
-	assert.equal(webUrl(web.web, thread, thread.servers[0]), 'https://web.apron.chat/#server=wss%3A%2F%2Fchat.example%2Fws&room=t-123');
+	assert.equal(webUrl(web.web, thread), 'https://web.apron.chat/#server=wss%3A%2F%2Fchat.example%2Fws&room=t-123');
 	const room = link('apron:?server=wss://chat.example/ws&room=general');
-	assert.equal(webUrl(web.web, room, room.servers[0]), 'https://web.apron.chat/#server=wss%3A%2F%2Fchat.example%2Fws&room=general');
+	assert.equal(webUrl(web.web, room), 'https://web.apron.chat/#server=wss%3A%2F%2Fchat.example%2Fws&room=general');
 });
 
 test('passes the keys it does not use on, in the fragment only', () => {
 	const web = registry.clients.find((/** @type {any} */ c) => c.id === 'apron-web');
 	const signIn = link('https://link.apron.chat/#server=wss://chat.example/ws&token=Hk41%2Bx9&state=q8Rz');
-	assert.equal(webUrl(web.web, signIn, signIn.servers[0]), 'https://web.apron.chat/#server=wss%3A%2F%2Fchat.example%2Fws&token=Hk41%2Bx9&state=q8Rz');
+	assert.equal(webUrl(web.web, signIn), 'https://web.apron.chat/#server=wss%3A%2F%2Fchat.example%2Fws&token=Hk41%2Bx9&state=q8Rz');
 	const message = link('apron:?server=wss://chat.example/ws&room=general&message=1724803200042&signal=wss://s.example/&signal=wss://t.example/');
-	assert.equal(webUrl(web.web, message, message.servers[0]), 'https://web.apron.chat/#server=wss%3A%2F%2Fchat.example%2Fws&room=general&message=1724803200042&signal=wss%3A%2F%2Fs.example%2F&signal=wss%3A%2F%2Ft.example%2F');
+	assert.equal(webUrl(web.web, message), 'https://web.apron.chat/#server=wss%3A%2F%2Fchat.example%2Fws&room=general&message=1724803200042&signal=wss%3A%2F%2Fs.example%2F&signal=wss%3A%2F%2Ft.example%2F');
 	const renamed = { url: 'https://x.example/', query: { server: 's' }, fragment: { room: 'r' } };
 	const clash = link('apron:?server=wss://chat.example/&room=a&s=wss://evil.example/&r=b&token=t');
-	assert.equal(webUrl(renamed, clash, clash.servers[0]), 'https://x.example/?s=wss%3A%2F%2Fchat.example%2F#r=a&token=t', "never in place of a key the client's format names");
+	assert.equal(webUrl(renamed, clash), 'https://x.example/?s=wss%3A%2F%2Fchat.example%2F#r=a&token=t', "never in place of a key the client's format names");
 	// A link key the client's format doesn't map goes on in the fragment too.
 	const user = link('apron:?server=wss://chat.example/ws&user=ada&x=1');
-	assert.equal(webUrl(web.web, user, user.servers[0]), 'https://web.apron.chat/#server=wss%3A%2F%2Fchat.example%2Fws&user=ada&x=1');
+	assert.equal(webUrl(web.web, user), 'https://web.apron.chat/#server=wss%3A%2F%2Fchat.example%2Fws&user=ada&x=1');
 });
 
 test('a remembered choice opens a sign-in link too, with its token', () => {
@@ -73,7 +73,7 @@ test('a remembered choice opens a sign-in link too, with its token', () => {
 	assert.equal(autoOpen(link('https://link.apron.chat/#server=ws://localhost:8080/&token=t'), registry, [], 'apron-web'), undefined, 'this device still asks');
 });
 
-test('offers clients that support one of the servers, the preferred one first', () => {
+test('offers clients that support the server, the preferred one first', () => {
 	const both = { clients: [registry.clients[0], native] };
 	const parsed = link('apron:?server=wss://chat.example/ws&room=general');
 	assert.deepEqual(offersFor(parsed, both, 'ios').map((o) => [o.client.id, o.kind]), [['apron-web', 'web'], ['pocket', 'native']]);
@@ -85,11 +85,11 @@ test('offers clients that support one of the servers, the preferred one first', 
 
 	const p2p = link('apron:?server=webrtc:k2Fp9xQ&room=general');
 	assert.deepEqual(offersFor(p2p, both, 'desktop'), []);
-	assert.deepEqual(unsupportedTransports(p2p, both), ['webrtc']);
+	assert.equal(unsupportedTransport(p2p, both), 'webrtc');
+	assert.equal(unsupportedTransport(parsed, both), undefined);
 
-	const fallback = link('apron:?server=webrtc:k2Fp9xQ&server=wss://chat.example/ws');
-	const [offer] = offersFor(fallback, both, 'desktop');
-	assert.ok(offer.href.includes('server=wss%3A%2F%2Fchat.example%2Fws'), 'passes the first server the client supports');
+	const repeated = link('apron:?server=webrtc:k2Fp9xQ&server=wss://chat.example/ws');
+	assert.deepEqual(offersFor(repeated, both, 'desktop'), [], 'a second server is no fallback');
 });
 
 test('blocks a host and the names under it', () => {
@@ -97,7 +97,6 @@ test('blocks a host and the names under it', () => {
 	assert.equal(blockedEntry(link('apron:?server=wss://evil.example/'), blocked)?.reason, 'phishing');
 	assert.equal(blockedEntry(link('apron:?server=wss://chat.evil.example:8443/'), blocked)?.reason, 'phishing');
 	assert.equal(blockedEntry(link('apron:?server=wss://notevil.example/'), blocked), undefined);
-	assert.equal(blockedEntry(link('apron:?server=wss://ok.example/&server=wss://evil.example/'), blocked)?.reason, 'phishing');
 });
 
 test('detects the platform', () => {
@@ -161,7 +160,6 @@ test('a remembered choice opens public servers only', () => {
 	assert.equal(open('apron:?server=wss://chat.example/ws', 'custom:https://removed.example/'), undefined, 'default no longer there');
 	assert.equal(open('apron:?server=ws://localhost:8080/ws'), undefined, 'this device');
 	assert.equal(open('apron:?server=wss://nas.local/ws'), undefined, 'private network');
-	assert.equal(open('apron:?server=wss://chat.example/ws&server=wss://10.0.0.5/ws'), undefined, 'any private server');
 	assert.equal(open('apron:?server=webrtc:k2Fp9xQ'), undefined, 'no transport the default supports');
 	assert.equal(open('apron:?server=wss://chat.evil.example/', 'apron-web', [{ host: 'evil.example', reason: 'x' }]), undefined, 'blocked');
 });
