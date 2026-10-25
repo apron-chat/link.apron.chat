@@ -28,6 +28,7 @@ import { networkOf } from './link.js';
  * @property {boolean} [self_hostable] whether other hosts serve this web client, with the same `web` format
  * @property {boolean} [custom] added by the viewer on this page, not from the registry
  * @property {{ app_ids: string[], store?: string }} [ios]
+ * @property {{ app_ids: string[] }} [macos] a native Mac app, which opens link.apron.chat links through the Apple association file
  * @property {{ package: string, sha256_cert_fingerprints: string[], store?: string }} [android]
  * @property {{ download: string }} [desktop]
  */
@@ -45,7 +46,7 @@ import { networkOf } from './link.js';
 
 /** Link keys a web client can take. */
 const LINK_KEYS = ['server', 'room', 'message', 'user'];
-const CLIENT_KEYS = ['id', 'name', 'description', 'homepage', 'source', 'transports', 'web', 'self_hostable', 'ios', 'android', 'desktop'];
+const CLIENT_KEYS = ['id', 'name', 'description', 'homepage', 'source', 'transports', 'web', 'self_hostable', 'ios', 'macos', 'android', 'desktop'];
 
 /** The id prefix of a web client that the viewer added. */
 export const CUSTOM_PREFIX = 'custom:';
@@ -73,7 +74,7 @@ export function checkRegistry(data) {
 		if (!isHttps(client.homepage)) problem('homepage: an https URL');
 		if (client.source !== undefined && !isHttps(client.source)) problem('source: an https URL');
 		if (!Array.isArray(client.transports) || client.transports.length === 0 || !client.transports.every((t) => typeof t === 'string' && /^[a-z][a-z0-9-]*$/.test(t))) problem('transports: a list of transport names, such as ["wss"]');
-		if (!client.web && !client.ios && !client.android && !client.desktop) problem('needs at least one of web, ios, android, desktop');
+		if (!client.web && !client.ios && !client.macos && !client.android && !client.desktop) problem('needs at least one of web, ios, macos, android, desktop');
 
 		if (client.web !== undefined) {
 			const web = client.web;
@@ -104,8 +105,16 @@ export function checkRegistry(data) {
 			const ios = client.ios;
 			if (!isObject(ios)) problem('ios: expected an object');
 			else {
-				if (!Array.isArray(ios.app_ids) || ios.app_ids.length === 0 || !ios.app_ids.every((id) => typeof id === 'string' && /^[A-Z0-9]{10}\.[A-Za-z0-9.-]+$/.test(id))) problem('ios.app_ids: a list of "TEAMID.bundle.id"');
+				if (!isAppleAppIds(ios.app_ids)) problem('ios.app_ids: a list of "TEAMID.bundle.id"');
 				if (ios.store !== undefined && !isHttps(ios.store)) problem('ios.store: an https URL');
+			}
+		}
+		if (client.macos !== undefined) {
+			const macos = client.macos;
+			if (!isObject(macos)) problem('macos: expected an object');
+			else {
+				for (const key of Object.keys(macos)) if (key !== 'app_ids') problem(`macos: unknown key "${key}"`);
+				if (!isAppleAppIds(macos.app_ids)) problem('macos.app_ids: a list of "TEAMID.bundle.id"');
 			}
 		}
 		if (client.android !== undefined) {
@@ -340,13 +349,14 @@ export function unsupportedTransport(link, registry) {
 }
 
 /**
- * `/.well-known/apple-app-site-association`: every iOS app in the registry
- * may open link.apron.chat links. The link is in the fragment, so the path
- * is always `/`.
+ * `/.well-known/apple-app-site-association`: every iOS and Mac app in the
+ * registry may open link.apron.chat links. The link is in the fragment, so
+ * the path is always `/`.
  * @param {Registry} registry
  */
 export function appleAppSiteAssociation(registry) {
-	const appIDs = registry.clients.flatMap((client) => client.ios?.app_ids ?? []);
+	// An app built for both iOS and the Mac can have one app ID for both.
+	const appIDs = [...new Set(registry.clients.flatMap((client) => [...(client.ios?.app_ids ?? []), ...(client.macos?.app_ids ?? [])]))];
 	return {
 		applinks: {
 			details: appIDs.length ? [{ appIDs, components: [{ '/': '/', comment: 'Apron links' }] }] : []
@@ -375,6 +385,10 @@ export function assetLinks(registry) {
 /** @returns {value is Record<string, any>} */
 function isObject(/** @type {unknown} */ value) {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isAppleAppIds(/** @type {unknown} */ value) {
+	return Array.isArray(value) && value.length > 0 && value.every((id) => typeof id === 'string' && /^[A-Z0-9]{10}\.[A-Za-z0-9.-]+$/.test(id));
 }
 
 function isHttps(/** @type {unknown} */ value) {

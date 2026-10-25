@@ -68,6 +68,7 @@ Add your app to [`clients.json`](clients.json) in a pull request.
 	// Native apps: these go into the app association files, so the app
 	// opens link.apron.chat links directly.
 	"ios": { "app_ids": ["TEAMID1234.example.myapp"], "store": "https://apps.apple.com/app/id…" },
+	"macos": { "app_ids": ["TEAMID1234.example.myapp.mac"] },
 	"android": {
 		"package": "example.myapp",
 		"sha256_cert_fingerprints": ["AB:CD:…"],
@@ -76,6 +77,12 @@ Add your app to [`clients.json`](clients.json) in a pull request.
 	"desktop": { "download": "https://my-app.example/download" }
 }
 ```
+
+A Mac app lists its app IDs under `macos`, and the address people get it
+from under `desktop`. With the Associated Domains entitlement
+`applinks:link.apron.chat`, it then opens link.apron.chat links directly,
+sign-in links too, as an iOS app does. An app ID used by both an iOS and a
+Mac build goes in both lists, and the association file lists it once.
 
 Map keys to the fragment where you can: your app's host never receives
 it, so it doesn't learn which servers and rooms people open.
@@ -136,8 +143,8 @@ One-time setup, as for apron-web:
 
 After a deploy that changes the registry, check what the platforms see:
 
-- iOS reads the association file through Apple's CDN, which can take a day
-  to update. Check
+- iOS and macOS read the association file through Apple's CDN, which can
+  take a day to update. Check
   `https://app-site-association.cdn-apple.com/a/v1/link.apron.chat`.
 - Android checks `assetlinks.json` when an app is installed or updated.
   Check with Google's Digital Asset Links API:

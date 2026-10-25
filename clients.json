@@ -12,6 +12,15 @@
 				"url": "https://web.apron.chat/",
 				"fragment": { "server": "server", "room": "room", "message": "message" }
 			}
+		},
+		{
+			"id": "sidetable-macos",
+			"name": "SideTable",
+			"description": "Native macOS client for Apron.",
+			"homepage": "https://github.com/vrypan/SideTable",
+			"source": "https://github.com/vrypan/SideTable",
+			"transports": ["wss"],
+			"desktop": { "download": "https://github.com/vrypan/SideTable" }
 		}
 	]
 }
