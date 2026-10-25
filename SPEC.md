@@ -44,7 +44,7 @@ their prefix:
 | `server` | where to reach the server ([§3](#3-servers)) | one or more; required |
 | `room` | a `room_id`, also of a thread | at most one |
 | `message` | a `message_id` in `room` | at most one; requires `room` |
-| `user` | a `user_id` | at most one; not with `room` |
+| `user` | a `user_id`; with `room`, of a member of that room | at most one |
 
 - A link without `room` or `user` refers to the server.
 - `room` is a `room_id`, and `user` a `user_id`. They MUST NOT be empty, or
@@ -306,7 +306,7 @@ server        https://link.apron.chat/#server=wss://chat.example/ws
 room          https://link.apron.chat/#server=wss://chat.example/ws&room=general
 thread        https://link.apron.chat/#server=wss://chat.example/ws&room=t-123
 message       https://link.apron.chat/#server=wss://chat.example/ws&room=general&message=1724803200042
-user          https://link.apron.chat/#server=wss://chat.example/ws&user=ada
+user          https://link.apron.chat/#server=wss://chat.example/ws&room=general&user=ada
 local server  https://link.apron.chat/#server=ws://localhost:8080/ws&room=agent
 two ways      https://link.apron.chat/#server=webtransport://chat.example/wt&server=wss://chat.example/ws&room=general
 peer          https://link.apron.chat/#server=webrtc:k2Fp9xQ&signal=wss://signal.example/s&room=general

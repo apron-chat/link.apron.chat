@@ -40,7 +40,7 @@ const SINGLE_EXTRA_KEYS = ['token', 'state'];
  * @property {Server[]} servers in preference order; at least one
  * @property {string} [room] a room, also a thread
  * @property {string} [message] only with `room`
- * @property {string} [user] a user, only without `room`
+ * @property {string} [user] a user; with `room`, a member of that room
  * @property {[string, string][]} extra keys this page doesn't use, kept in order and passed on to the client
  */
 
@@ -52,7 +52,7 @@ const SINGLE_EXTRA_KEYS = ['token', 'state'];
 
 /**
  * @typedef {'no-server' | 'sign-in-without-server' | 'exposed-credential' | 'bad-server' | 'insecure-server' | 'bad-room' | 'bad-message' | 'bad-user'
- *   | 'message-without-room' | 'user-with-room' | 'duplicate-key' | 'not-a-link'} Reason
+ *   | 'message-without-room' | 'duplicate-key' | 'not-a-link'} Reason
  */
 
 /**
@@ -126,10 +126,7 @@ export function parseParams(params) {
 		if (room === undefined) return { kind: 'invalid', reason: 'message-without-room' };
 		if (!isMessageId(message)) return { kind: 'invalid', reason: 'bad-message', detail: message };
 	}
-	if (user !== undefined) {
-		if (room !== undefined) return { kind: 'invalid', reason: 'user-with-room' };
-		if (!isOpaqueId(user)) return { kind: 'invalid', reason: 'bad-user', detail: user };
-	}
+	if (user !== undefined && !isOpaqueId(user)) return { kind: 'invalid', reason: 'bad-user', detail: user };
 
 	/** @type {[string, string][]} */
 	const extra = [...params].filter(([key]) => key !== 'server' && !SINGLE_KEYS.includes(key));

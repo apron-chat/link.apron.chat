@@ -42,7 +42,6 @@ const REASONS = {
 	'bad-message': "The message in this link isn't a valid message ID.",
 	'message-without-room': 'This link has a message but no room.',
 	'bad-user': "The user in this link isn't a valid user ID.",
-	'user-with-room': 'This link has both a user and a room.',
 	'duplicate-key': 'This link gives the same key more than once.',
 	'not-a-link': "That isn't an Apron link."
 };
