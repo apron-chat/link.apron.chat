@@ -20,11 +20,7 @@
 			"homepage": "https://github.com/vrypan/SideTable",
 			"source": "https://github.com/vrypan/SideTable",
 			"transports": ["wss"],
-			"self_hostable": true,
-			"web": {
-				"url": "sidetable://open",
-				"query": { "server": "server", "room": "room",  "message": "message"  }
-			}
+			"desktop": { "download": "https://github.com/vrypan/SideTable" }
 		}
 	]
 }

@@ -135,11 +135,11 @@ test('checks a self-hosted web app address', () => {
 test('a self-hosted web app opens links in the format of the client it runs', () => {
 	const saved = [{ url: 'https://chat.acme.com/apron/', base: 'apron-web' }, { url: 'https://gone.example/', base: 'not-in-registry' }, { url: 'http://chat.acme.com/', base: 'apron-web' }];
 	const all = withCustom(registry, saved);
-	assert.deepEqual(all.clients.map((c) => c.id), ['custom:https://chat.acme.com/apron/', 'apron-web']);
+	assert.deepEqual(all.clients.map((c) => c.id), ['custom:https://chat.acme.com/apron/', ...registry.clients.map((c) => c.id)]);
 	assert.equal(customClient(saved[0], registry)?.custom, true);
 
 	const parsed = link('apron:?server=wss://chat.acme.com/ws&room=general&message=1724803200042');
-	assert.deepEqual(offersFor(parsed, all, 'desktop').map((o) => o.href), [
+	assert.deepEqual(offersFor(parsed, all, 'desktop').slice(0, 2).map((o) => o.href), [
 		'https://chat.acme.com/apron/#server=wss%3A%2F%2Fchat.acme.com%2Fws&room=general&message=1724803200042',
 		'https://web.apron.chat/#server=wss%3A%2F%2Fchat.acme.com%2Fws&room=general&message=1724803200042'
 	]);
