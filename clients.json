@@ -21,6 +21,18 @@
 			"source": "https://github.com/vrypan/SideTable",
 			"transports": ["wss"],
 			"desktop": { "download": "https://github.com/vrypan/SideTable" }
+		},
+		{
+			"id": "stupid-social",
+			"name": "stupid social",
+			"description": "only the best parts of social (ios)",
+			"homepage": "https://stupidtech.net/",
+			"source": "https://github.com/stephancill/stupid-social",
+			"transports": ["wss", "ws"],
+			"ios": {
+				"app_ids": ["6JKMV57Y77.tech.stupid.StupidSocial"],
+				"store": "https://testflight.apple.com/join/fU5cYTpg"
+			}
 		}
 	]
 }
