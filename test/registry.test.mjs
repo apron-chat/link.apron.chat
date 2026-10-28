@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { parseLink } from '../src/link.js';
-import { appleAppSiteAssociation, assetLinks, autoOpen, blockedEntry, checkBlocklist, checkRegistry, checkWebAppUrl, customClient, detectPlatform, offersFor, unsupportedTransport, webUrl, withCustom } from '../src/registry.js';
+import { appGroups, appleAppSiteAssociation, assetLinks, autoOpen, blockedEntry, checkBlocklist, checkRegistry, checkWebAppUrl, customClient, detectPlatform, offersFor, unsupportedTransport, webUrl, withCustom } from '../src/registry.js';
 
 const registry = JSON.parse(readFileSync(new URL('../clients.json', import.meta.url), 'utf8'));
 const blocklist = JSON.parse(readFileSync(new URL('../blocked.json', import.meta.url), 'utf8'));
@@ -98,6 +98,17 @@ test('offers clients that support the server, the preferred one first', () => {
 
 	const repeated = link('apron:?server=webrtc:k2Fp9xQ&server=wss://chat.example/ws');
 	assert.deepEqual(offersFor(repeated, both, 'macos'), [], 'a second server is no fallback');
+});
+
+test('groups the apps by where they run', () => {
+	const mac = { ...native, id: 'desk', ios: undefined, android: undefined, macos: { app_ids: ['ABCDE12345.example.desk'] } };
+	const groups = appGroups({ clients: [registry.clients[0], native, mac] });
+	assert.deepEqual(groups.map(({ group, apps }) => [group, apps.map((a) => a.href)]), [
+		['web', ['https://web.apron.chat/']],
+		['ios', ['https://apps.apple.com/app/id1']],
+		['android', ['https://play.google.com/store/apps/details?id=example.pocket']],
+		['macos', ['https://pocket.example/']]
+	], 'no download: the homepage');
 });
 
 test('blocks a host and the names under it', () => {

@@ -233,6 +233,25 @@ export function nativeStore(client, platform) {
 	return client[platform]?.download;
 }
 
+/** @typedef {'web' | Exclude<Platform, 'other'>} AppGroup where a listed app runs: in a browser, or natively on a platform */
+/** @type {AppGroup[]} */
+const APP_GROUPS = ['web', 'ios', 'android', 'macos', 'windows', 'linux'];
+
+/**
+ * The registry's apps by where they run, each with where to get it there.
+ * An app on several platforms is in each of their groups; empty groups are left out.
+ * @param {Registry} registry
+ * @returns {{ group: AppGroup, apps: { client: Client, href: string }[] }[]}
+ */
+export function appGroups(registry) {
+	return APP_GROUPS.map((group) => ({
+		group,
+		apps: registry.clients
+			.filter((client) => client[group])
+			.map((client) => ({ client, href: (group === 'web' ? client.web?.url : nativeStore(client, group)) ?? client.homepage }))
+	})).filter(({ apps }) => apps.length);
+}
+
 /**
  * The address that opens a link in a web client, built from the registry's
  * description with the URL API, so a link's values can only ever be values.

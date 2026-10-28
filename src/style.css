@@ -293,6 +293,31 @@ dd {
 	font-size: var(--text-sm);
 }
 
+.app-group {
+	margin: var(--space-2) 0;
+	padding: var(--space-1) var(--space-4);
+	border: 1px solid var(--line);
+	border-radius: var(--radius-md);
+}
+
+.app-group.here {
+	border-color: var(--accent);
+}
+
+.app-group h3 {
+	display: flex;
+	justify-content: space-between;
+	gap: var(--space-3);
+	margin: var(--space-2) 0 0;
+	color: var(--ink-muted);
+	font-size: var(--text-ui);
+}
+
+.works-here {
+	color: var(--accent);
+	font-size: var(--text-sm);
+}
+
 .apps {
 	list-style: none;
 	margin: 0;
