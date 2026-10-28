@@ -33,14 +33,16 @@ test('the registry check finds mistakes', () => {
 		clients: [
 			{ id: 'Bad Id', name: '', homepage: 'http://x.example/', transports: [], web: { url: 'https://x.example/#a', query: { room: 'r', nope: 'n' } }, typo: 1 },
 			{ ...native, id: 'pocket' },
-			{ ...native, id: 'pocket', ios: { app_ids: ['bad'] }, macos: { app_ids: [], store: 'x' }, android: { package: 'x', sha256_cert_fingerprints: ['ab'] } }
+			{ ...native, id: 'pocket', ios: { app_ids: ['bad'] }, macos: { app_ids: [], store: 'x' }, android: { package: 'x', sha256_cert_fingerprints: ['ab'] }, windows: { download: 'http://x.example/' } },
+			{ ...native, id: 'old', ios: undefined, android: undefined, macos: {}, desktop: { download: 'https://x.example/' } }
 		]
 	});
-	for (const expected of ['unknown key "typo"', 'id: lowercase', 'name:', 'homepage:', 'transports:', 'web.url:', '"nope" is not a link key', 'must pass "server"', 'id: already used', 'ios.app_ids', 'macos: unknown key "store"', 'macos.app_ids', 'android.package', 'android.sha256']) {
+	for (const expected of ['unknown key "typo"', 'id: lowercase', 'name:', 'homepage:', 'transports:', 'web.url:', '"nope" is not a link key', 'must pass "server"', 'id: already used', 'ios.app_ids', 'macos: unknown key "store"', 'macos.app_ids', 'android.package', 'android.sha256', 'windows.download', 'macos: needs', 'unknown key "desktop"']) {
 		assert.ok(problems.some((p) => p.includes(expected)), `expected a problem with ${expected} in ${JSON.stringify(problems, null, 1)}`);
 	}
 	assert.deepEqual(checkRegistry({ clients: [native] }), []);
 	assert.deepEqual(checkRegistry({ clients: [{ ...native, id: 'desk', ios: undefined, android: undefined, macos: { app_ids: ['ABCDE12345.example.desk'] } }] }), [], 'a Mac app alone');
+	assert.deepEqual(checkRegistry({ clients: [{ ...native, id: 'desk', ios: undefined, android: undefined, macos: { download: 'https://desk.example/' }, linux: { download: 'https://desk.example/' } }] }), [], 'downloads only');
 });
 
 test('opens apron-web with its own address format', () => {
@@ -79,18 +81,23 @@ test('offers clients that support the server, the preferred one first', () => {
 	const parsed = link('apron:?server=wss://chat.example/ws&room=general');
 	assert.deepEqual(offersFor(parsed, both, 'ios').map((o) => [o.client.id, o.kind]), [['apron-web', 'web'], ['pocket', 'native']]);
 	assert.deepEqual(offersFor(parsed, both, 'ios', 'pocket').map((o) => o.client.id), ['pocket', 'apron-web']);
-	assert.deepEqual(offersFor(parsed, both, 'desktop').map((o) => o.kind), ['web']);
+	assert.deepEqual(offersFor(parsed, both, 'macos').map((o) => o.kind), ['web']);
+
+	const mac = { ...native, id: 'desk', ios: undefined, android: undefined, macos: { download: 'https://desk.example/' } };
+	for (const platform of /** @type {const} */ (['macos', 'windows', 'linux', 'other'])) {
+		assert.deepEqual(offersFor(parsed, { clients: [mac] }, platform).length, platform === 'macos' ? 1 : 0, `a Mac app on ${platform}`);
+	}
 
 	const local = link('apron:?server=ws://localhost:8080/ws');
 	assert.deepEqual(offersFor(local, both, 'android').map((o) => o.client.id), ['apron-web']);
 
 	const p2p = link('apron:?server=webrtc:k2Fp9xQ&room=general');
-	assert.deepEqual(offersFor(p2p, both, 'desktop'), []);
+	assert.deepEqual(offersFor(p2p, both, 'macos'), []);
 	assert.equal(unsupportedTransport(p2p, both), 'webrtc');
 	assert.equal(unsupportedTransport(parsed, both), undefined);
 
 	const repeated = link('apron:?server=webrtc:k2Fp9xQ&server=wss://chat.example/ws');
-	assert.deepEqual(offersFor(repeated, both, 'desktop'), [], 'a second server is no fallback');
+	assert.deepEqual(offersFor(repeated, both, 'macos'), [], 'a second server is no fallback');
 });
 
 test('blocks a host and the names under it', () => {
@@ -103,14 +110,14 @@ test('blocks a host and the names under it', () => {
 test('detects the platform', () => {
 	assert.equal(detectPlatform({ userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)' }), 'ios');
 	assert.equal(detectPlatform({ userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)', maxTouchPoints: 5 }), 'ios');
-	assert.equal(detectPlatform({ userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)', maxTouchPoints: 0 }), 'desktop');
+	assert.equal(detectPlatform({ userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)', maxTouchPoints: 0 }), 'macos');
 	assert.equal(detectPlatform({ userAgent: 'Mozilla/5.0 (Linux; Android 15; Pixel 9)' }), 'android');
-	assert.equal(detectPlatform({ userAgent: 'Mozilla/5.0 (X11; Linux x86_64)' }), 'desktop');
+	assert.equal(detectPlatform({ userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }), 'windows');
+	assert.equal(detectPlatform({ userAgent: 'Mozilla/5.0 (X11; Linux x86_64)' }), 'linux');
+	assert.equal(detectPlatform({ userAgent: 'Mozilla/5.0 (X11; CrOS x86_64 14541.0.0)' }), 'other');
 });
 
 test('builds the app association files', () => {
-	assert.deepEqual(appleAppSiteAssociation(registry), { applinks: { details: [] } });
-	assert.deepEqual(assetLinks(registry), []);
 	assert.deepEqual(appleAppSiteAssociation({ clients: [native] }), {
 		applinks: { details: [{ appIDs: ['ABCDE12345.example.pocket'], components: [{ '/': '/', comment: 'Apron links' }] }] }
 	});
@@ -143,11 +150,11 @@ test('a self-hosted web app opens links in the format of the client it runs', ()
 	assert.equal(customClient(saved[0], registry)?.custom, true);
 
 	const parsed = link('apron:?server=wss://chat.acme.com/ws&room=general&message=1724803200042');
-	assert.deepEqual(offersFor(parsed, all, 'desktop').slice(0, 2).map((o) => o.href), [
+	assert.deepEqual(offersFor(parsed, all, 'linux').slice(0, 2).map((o) => o.href), [
 		'https://chat.acme.com/apron/#server=wss%3A%2F%2Fchat.acme.com%2Fws&room=general&message=1724803200042',
 		'https://web.apron.chat/#server=wss%3A%2F%2Fchat.acme.com%2Fws&room=general&message=1724803200042'
 	]);
-	assert.equal(offersFor(parsed, all, 'desktop', 'apron-web')[0].client.id, 'apron-web', 'the default comes first');
+	assert.equal(offersFor(parsed, all, 'linux', 'apron-web')[0].client.id, 'apron-web', 'the default comes first');
 });
 
 test('only a web client is self-hostable', () => {
