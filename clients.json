@@ -20,7 +20,7 @@
 			"homepage": "https://github.com/vrypan/SideTable",
 			"source": "https://github.com/vrypan/SideTable",
 			"transports": ["wss"],
-			"desktop": { "download": "https://github.com/vrypan/SideTable" }
+			"macos": { "download": "https://github.com/vrypan/SideTable" }
 		},
 		{
 			"id": "stupid-social",

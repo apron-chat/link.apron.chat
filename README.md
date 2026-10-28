@@ -65,24 +65,32 @@ Add your app to [`clients.json`](clients.json) in a pull request.
 		"fragment": { "message": "message" }
 	},
 
-	// Native apps: these go into the app association files, so the app
-	// opens link.apron.chat links directly.
+	// Native apps, each offered only on its own platform. App IDs, the
+	// package and fingerprints go into the app association files, so the
+	// app opens link.apron.chat links directly.
 	"ios": { "app_ids": ["TEAMID1234.example.myapp"], "store": "https://apps.apple.com/app/id…" },
-	"macos": { "app_ids": ["TEAMID1234.example.myapp.mac"] },
 	"android": {
 		"package": "example.myapp",
 		"sha256_cert_fingerprints": ["AB:CD:…"],
 		"store": "https://play.google.com/store/apps/details?id=example.myapp"
 	},
-	"desktop": { "download": "https://my-app.example/download" }
+	"macos": { "app_ids": ["TEAMID1234.example.myapp.mac"], "download": "https://my-app.example/download" },
+	"windows": { "download": "https://my-app.example/download" },
+	"linux": { "download": "https://my-app.example/download" }
 }
 ```
 
-A Mac app lists its app IDs under `macos`, and the address people get it
-from under `desktop`. With the Associated Domains entitlement
-`applinks:link.apron.chat`, it then opens link.apron.chat links directly,
-sign-in links too, as an iOS app does. An app ID used by both an iOS and a
-Mac build goes in both lists, and the association file lists it once.
+The page offers an app only on the platform it lists: a Mac app is not
+offered on Windows. An app for several desktops lists its download under
+each. Other platforms, such as ChromeOS, are offered web clients only.
+
+A Mac app lists its app IDs under `macos`, its download, or both. With
+the Associated Domains entitlement `applinks:link.apron.chat`, it then
+opens link.apron.chat links directly, sign-in links too, as an iOS app
+does. An app ID used by both an iOS and a Mac build goes in both lists,
+and the association file lists it once. A Windows or Linux app opens
+links through the `apron:` URI, which the page offers as "Open in an
+installed app".
 
 Map keys to the fragment where you can: your app's host never receives
 it, so it doesn't learn which servers and rooms people open.

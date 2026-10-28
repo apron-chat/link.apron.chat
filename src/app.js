@@ -8,7 +8,7 @@
  * forbids the HTML sinks (Trusted Types), because a link chooses every value.
  */
 import { formatLink, formatParams, formatUri, hasCredential, messageTime, parseLink, parseLocation, signsIn, visible } from './link.js';
-import { autoOpen, blockedEntry, checkWebAppUrl, CUSTOM_PREFIX, detectPlatform, nativeStore, offersFor, selfHostable, unsupportedTransport, withCustom } from './registry.js';
+import { appGroups, autoOpen, blockedEntry, checkWebAppUrl, CUSTOM_PREFIX, detectPlatform, nativeStore, offersFor, selfHostable, unsupportedTransport, withCustom } from './registry.js';
 import { blocked, registry } from './data.js';
 
 /** @typedef {import('./link.js').Link} Link */
@@ -23,6 +23,8 @@ const REMEMBER_KEY = 'remember-choice';
 const SAVED_KEY = 'web-apps';
 const REPOSITORY = 'https://github.com/apron-chat/link.apron.chat';
 const platform = detectPlatform(navigator);
+/** @type {Record<import('./registry.js').AppGroup, string>} */
+const GROUP_NAMES = { web: 'Web', ios: 'iOS', android: 'Android', macos: 'macOS', windows: 'Windows', linux: 'Linux' };
 
 /**
  * A sign-in link, once it is out of the address bar: held here only, so the
@@ -262,18 +264,22 @@ function invalidView(/** @type {string} */ reason) {
 }
 
 function landingView() {
-	const apps = h('ul', { class: 'apps' });
-	for (const client of registry.clients) {
-		const get = client.web ? client.web.url : nativeStore(client, platform) ?? client.homepage;
-		apps.append(
-			h(
-				'li',
-				{},
-				h('a', { href: get, rel: 'noopener noreferrer', class: 'app-name' }, client.name),
-				client.description && h('span', { class: 'app-description' }, client.description)
-			)
-		);
-	}
+	// Web apps run in any browser; native ones only on their own platform.
+	const groups = appGroups(registry).map(({ group, apps }) => {
+		const here = group === 'web' || group === platform;
+		const list = h('ul', { class: 'apps' });
+		for (const { client, href } of apps) {
+			list.append(
+				h(
+					'li',
+					{},
+					h('a', { href, rel: 'noopener noreferrer', class: 'app-name' }, client.name),
+					client.description && h('span', { class: 'app-description' }, client.description)
+				)
+			);
+		}
+		return h('section', { class: here ? 'app-group here' : 'app-group' }, h('h3', {}, GROUP_NAMES[group]), list);
+	});
 	return h(
 		'section',
 		{ class: 'card' },
@@ -281,7 +287,7 @@ function landingView() {
 		h('p', {}, 'A link.apron.chat link opens an Apron server, room or message in whichever Apron app you use. The link stays in your browser: it is never sent to link.apron.chat.'),
 		h('pre', { class: 'example' }, 'https://link.apron.chat/#server=wss://chat.example/ws&room=general'),
 		h('h2', {}, 'Apron apps'),
-		apps,
+		...groups,
 		h('p', { class: 'muted' }, 'Making an Apron app? ', h('a', { href: `${REPOSITORY}#adding-a-client` }, 'Add it to this list'), '.'),
 		defaultsView(),
 		pasteForm()

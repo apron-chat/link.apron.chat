@@ -28,15 +28,16 @@ import { networkOf } from './link.js';
  * @property {boolean} [self_hostable] whether other hosts serve this web client, with the same `web` format
  * @property {boolean} [custom] added by the viewer on this page, not from the registry
  * @property {{ app_ids: string[], store?: string }} [ios]
- * @property {{ app_ids: string[] }} [macos] a native Mac app, which opens link.apron.chat links through the Apple association file
+ * @property {{ app_ids?: string[], download?: string }} [macos] a native Mac app: its app IDs go in the Apple association file
  * @property {{ package: string, sha256_cert_fingerprints: string[], store?: string }} [android]
- * @property {{ download: string }} [desktop]
+ * @property {{ download: string }} [windows]
+ * @property {{ download: string }} [linux]
  */
 
 /** @typedef {{ clients: Client[] }} Registry */
 /** @typedef {{ url: string, base: string }} SavedWebApp a self-hosted web client that the viewer added: its address, and the registry client it runs */
 /** @typedef {{ host: string, reason: string }} Blocked */
-/** @typedef {'ios' | 'android' | 'desktop'} Platform */
+/** @typedef {'ios' | 'android' | 'macos' | 'windows' | 'linux' | 'other'} Platform `other` gets web clients only */
 
 /**
  * What the page offers for one client:
@@ -46,7 +47,7 @@ import { networkOf } from './link.js';
 
 /** Link keys a web client can take. */
 const LINK_KEYS = ['server', 'room', 'message', 'user'];
-const CLIENT_KEYS = ['id', 'name', 'description', 'homepage', 'source', 'transports', 'web', 'self_hostable', 'ios', 'macos', 'android', 'desktop'];
+const CLIENT_KEYS = ['id', 'name', 'description', 'homepage', 'source', 'transports', 'web', 'self_hostable', 'ios', 'macos', 'android', 'windows', 'linux'];
 
 /** The id prefix of a web client that the viewer added. */
 export const CUSTOM_PREFIX = 'custom:';
@@ -74,7 +75,7 @@ export function checkRegistry(data) {
 		if (!isHttps(client.homepage)) problem('homepage: an https URL');
 		if (client.source !== undefined && !isHttps(client.source)) problem('source: an https URL');
 		if (!Array.isArray(client.transports) || client.transports.length === 0 || !client.transports.every((t) => typeof t === 'string' && /^[a-z][a-z0-9-]*$/.test(t))) problem('transports: a list of transport names, such as ["wss"]');
-		if (!client.web && !client.ios && !client.macos && !client.android && !client.desktop) problem('needs at least one of web, ios, macos, android, desktop');
+		if (!client.web && !client.ios && !client.macos && !client.android && !client.windows && !client.linux) problem('needs at least one of web, ios, android, macos, windows, linux');
 
 		if (client.web !== undefined) {
 			const web = client.web;
@@ -113,8 +114,10 @@ export function checkRegistry(data) {
 			const macos = client.macos;
 			if (!isObject(macos)) problem('macos: expected an object');
 			else {
-				for (const key of Object.keys(macos)) if (key !== 'app_ids') problem(`macos: unknown key "${key}"`);
-				if (!isAppleAppIds(macos.app_ids)) problem('macos.app_ids: a list of "TEAMID.bundle.id"');
+				for (const key of Object.keys(macos)) if (key !== 'app_ids' && key !== 'download') problem(`macos: unknown key "${key}"`);
+				if (macos.app_ids === undefined && macos.download === undefined) problem('macos: needs app_ids, download or both');
+				if (macos.app_ids !== undefined && !isAppleAppIds(macos.app_ids)) problem('macos.app_ids: a list of "TEAMID.bundle.id"');
+				if (macos.download !== undefined && !isHttps(macos.download)) problem('macos.download: an https URL');
 			}
 		}
 		if (client.android !== undefined) {
@@ -126,7 +129,15 @@ export function checkRegistry(data) {
 				if (android.store !== undefined && !isHttps(android.store)) problem('android.store: an https URL');
 			}
 		}
-		if (client.desktop !== undefined && (!isObject(client.desktop) || !isHttps(client.desktop.download))) problem('desktop.download: an https URL');
+		for (const os of /** @type {const} */ (['windows', 'linux'])) {
+			const app = client[os];
+			if (app === undefined) continue;
+			if (!isObject(app)) problem(`${os}: expected an object`);
+			else {
+				for (const key of Object.keys(app)) if (key !== 'download') problem(`${os}: unknown key "${key}"`);
+				if (!isHttps(app.download)) problem(`${os}.download: an https URL`);
+			}
+		}
 	});
 	return problems;
 }
@@ -171,7 +182,11 @@ export function detectPlatform(nav) {
 	// iPadOS reports itself as a Mac; only the touch screen tells them apart.
 	if (/iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && (nav.maxTouchPoints ?? 0) > 1)) return 'ios';
 	if (/Android/.test(ua)) return 'android';
-	return 'desktop';
+	if (/Macintosh/.test(ua)) return 'macos';
+	if (/Windows/.test(ua)) return 'windows';
+	// After Android, whose user agents say Linux too. ChromeOS says CrOS, not Linux.
+	if (/Linux/.test(ua)) return 'linux';
+	return 'other';
 }
 
 /**
@@ -214,7 +229,27 @@ export function offersFor(link, registry, platform, preferred) {
 export function nativeStore(client, platform) {
 	if (platform === 'ios') return client.ios?.store;
 	if (platform === 'android') return client.android?.store;
-	return client.desktop?.download;
+	if (platform === 'other') return undefined;
+	return client[platform]?.download;
+}
+
+/** @typedef {'web' | Exclude<Platform, 'other'>} AppGroup where a listed app runs: in a browser, or natively on a platform */
+/** @type {AppGroup[]} */
+const APP_GROUPS = ['web', 'ios', 'android', 'macos', 'windows', 'linux'];
+
+/**
+ * The registry's apps by where they run, each with where to get it there.
+ * An app on several platforms is in each of their groups; empty groups are left out.
+ * @param {Registry} registry
+ * @returns {{ group: AppGroup, apps: { client: Client, href: string }[] }[]}
+ */
+export function appGroups(registry) {
+	return APP_GROUPS.map((group) => ({
+		group,
+		apps: registry.clients
+			.filter((client) => client[group])
+			.map((client) => ({ client, href: (group === 'web' ? client.web?.url : nativeStore(client, group)) ?? client.homepage }))
+	})).filter(({ apps }) => apps.length);
 }
 
 /**
