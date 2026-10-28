@@ -45,83 +45,88 @@ npm run build   # write the site to build/
 ## Adding a client
 
 Add your app to [`clients.json`](clients.json) in a pull request.
-`npm test` checks the entry.
-
-```jsonc
-{
-	"id": "my-app",                      // lowercase letters, digits and dashes
-	"name": "My App",                    // up to 40 characters
-	"description": "What it is.",        // optional, up to 140 characters
-	"homepage": "https://my-app.example/",
-	"source": "https://github.com/me/my-app",   // optional
-	"transports": ["wss"],               // the server transports it supports (SPEC.md §3)
-	"self_hostable": true,               // optional: others host copies of this web client
-
-	// A web client: how it takes a link. Each key is a link key, and each
-	// value is the name of the key in your app's URL.
-	"web": {
-		"url": "https://my-app.example/open",
-		"query": { "server": "server", "room": "room" },
-		"fragment": { "message": "message" }
-	},
-
-	// Native apps, each offered only on its own platform. App IDs, the
-	// package and fingerprints go into the app association files, so the
-	// app opens link.apron.chat links directly.
-	"ios": { "app_ids": ["TEAMID1234.example.myapp"], "store": "https://apps.apple.com/app/id…" },
-	"android": {
-		"package": "example.myapp",
-		"sha256_cert_fingerprints": ["AB:CD:…"],
-		"store": "https://play.google.com/store/apps/details?id=example.myapp"
-	},
-	"macos": { "app_ids": ["TEAMID1234.example.myapp.mac"], "download": "https://my-app.example/download" },
-	"windows": { "download": "https://my-app.example/download" },
-	"linux": { "download": "https://my-app.example/download" }
-}
-```
-
-The page offers an app only on the platform it lists: a Mac app is not
-offered on Windows. An app for several desktops lists its download under
-each. Other platforms, such as ChromeOS, are offered web clients only.
-
-A Mac app lists its app IDs under `macos`, its download, or both. With
-the Associated Domains entitlement `applinks:link.apron.chat`, it then
-opens link.apron.chat links directly, sign-in links too, as an iOS app
-does. An app ID used by both an iOS and a Mac build goes in both lists,
-and the association file lists it once. A Windows or Linux app opens
-links through the `apron:` URI, which the page offers as "Open in an
-installed app".
-
-Map keys to the fragment where you can: your app's host never receives
-it, so it doesn't learn which servers and rooms people open.
-Keys you don't map, such as `user`, arrive in your URL's fragment under
-their own names, after the keys you map. A sign-in link
-([SPEC.md §2.1](SPEC.md#21-sign-in-links)) arrives as, for example,
-`https://my-app.example/open?server=wss%3A%2F%2Fchat.example%2Fws#token=…&state=…`.
-A key whose name your format already uses is not passed on.
-
-A client in the registry agrees to follow [SPEC.md §6](SPEC.md#6-clients):
+`npm test` checks the entry. A client in the registry agrees to follow
+[SPEC.md §6](SPEC.md#6-clients):
 
 - Links never act on their own.
 - The client confirms a new server before it connects.
 - Credentials stay with their exact server address.
 - The client never connects to a server only to preview a link.
 
-Set `self_hostable` when people run their own copies of your web client at
-other addresses, as with Apron Web. Viewers can then add their copy's address
-on the page, under "Open links with" or "Use your own Apron Web", and links
-open there in your `web` format. The page keeps added copies, the viewer's
-default app, and "Remember my choice" in the browser's localStorage.
+One entry covers your app on the web, natively, or both: an app with both
+puts `web` and its native app keys in the same entry.
 
-With "Remember my choice", links open in the default web app without the
-page asking. Links to a blocked server, or to one on the viewer's device or
-private network, still show the page. Turn it off on https://link.apron.chat/.
+### Web clients
 
-The page offers a native app's store link on its platform. It also offers
-"Open in an installed app", which opens the `apron:` URI, when any app in
-the registry has a native build for that platform, but not for a sign-in
-link: any app can claim `apron:`. Native apps get sign-in links through the
-app association files.
+```jsonc
+{
+	"id": "browser-chat",                           // lowercase letters, digits and dashes
+	"name": "Browser Chat",                         // up to 40 characters
+	"description": "Apron in a browser tab.",       // optional, up to 140 characters
+	"homepage": "https://browser-chat.example/",
+	"source": "https://github.com/me/browser-chat", // optional
+	"transports": ["wss"],                          // the server transports it supports (SPEC.md §3)
+	"web": {
+		"url": "https://browser-chat.example/open",
+		"query": { "server": "server", "room": "room" },
+		"fragment": { "message": "message" }
+	},
+	"self_hostable": true                           // optional
+}
+```
+
+Each key in `query` and `fragment` is a link key (`server`, `room`,
+`message`, `user`), and its value is the name your URL uses for it.
+`server` is required. Use the fragment where you can: it never reaches your
+host, so your host doesn't learn which servers and rooms people open.
+
+Link keys you don't map, and a sign-in link's `token` and `state`, arrive in
+the fragment under their own names, unless your format already uses that
+name. A sign-in link ([SPEC.md §2.1](SPEC.md#21-sign-in-links)) opens the
+example above as
+`https://browser-chat.example/open?server=wss%3A%2F%2Fchat.example%2Fws#token=…&state=…`.
+
+Set `self_hostable` if people run copies of your web client at other
+addresses, as with Apron Web. They can then add their copy on the page, and
+links open there in your `web` format.
+
+### Native apps
+
+Add a key for each platform your app runs on. The page offers it only on
+those platforms.
+
+```jsonc
+{
+	"id": "native-chat",
+	"name": "Native Chat",
+	"description": "Apron on phones and desktops.",
+	"homepage": "https://native-chat.example/",
+	"source": "https://github.com/me/native-chat",
+	"transports": ["wss"],
+	"ios": { "app_ids": ["TEAMID1234.example.nativechat"], "store": "https://apps.apple.com/app/id…" },
+	"android": {
+		"package": "example.nativechat",
+		"sha256_cert_fingerprints": ["AB:CD:…"],
+		"store": "https://play.google.com/store/apps/details?id=example.nativechat"
+	},
+	"macos": { "app_ids": ["TEAMID1234.example.nativechat.mac"], "download": "https://native-chat.example/download" },
+	"windows": { "download": "https://native-chat.example/download" },
+	"linux": { "download": "https://native-chat.example/download" }
+}
+```
+
+`store` is optional, and so are a Mac app's `app_ids`.
+
+- **iOS, Android, and Mac apps with `app_ids`** open link.apron.chat links
+  directly, sign-in links too: the build puts them in the app association
+  files. On iOS and macOS, add the Associated Domains entitlement
+  `applinks:link.apron.chat`; an app ID shared by an iOS and a Mac build goes
+  in both lists. On Android, add an `android:autoVerify="true"` intent filter
+  for `https://link.apron.chat`.
+- **Windows and Linux apps, and Mac apps without `app_ids`,** get links
+  through the `apron:` URI scheme, which the page offers as "Open in an
+  installed app". It never offers it for a sign-in link, since any app can
+  claim `apron:`.
 
 ## Blocking a server
 
