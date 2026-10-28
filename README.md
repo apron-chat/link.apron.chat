@@ -53,28 +53,26 @@ Add your app to [`clients.json`](clients.json) in a pull request.
 - Credentials stay with their exact server address.
 - The client never connects to a server only to preview a link.
 
-Every entry has these keys, and then `web`, native app keys, or both:
-
-```jsonc
-{
-	"id": "my-app",                             // lowercase letters, digits and dashes
-	"name": "My App",                           // up to 40 characters
-	"description": "What it is.",               // optional, up to 140 characters
-	"homepage": "https://my-app.example/",
-	"source": "https://github.com/me/my-app",   // optional
-	"transports": ["wss"]                       // the server transports it supports (SPEC.md §3)
-}
-```
+One entry covers your app on the web, natively, or both: an app with both
+puts `web` and its native app keys in the same entry.
 
 ### Web clients
 
 ```jsonc
-"web": {
-	"url": "https://my-app.example/open",
-	"query": { "server": "server", "room": "room" },
-	"fragment": { "message": "message" }
-},
-"self_hostable": true                           // optional
+{
+	"id": "browser-chat",                           // lowercase letters, digits and dashes
+	"name": "Browser Chat",                         // up to 40 characters
+	"description": "Apron in a browser tab.",       // optional, up to 140 characters
+	"homepage": "https://browser-chat.example/",
+	"source": "https://github.com/me/browser-chat", // optional
+	"transports": ["wss"],                          // the server transports it supports (SPEC.md §3)
+	"web": {
+		"url": "https://browser-chat.example/open",
+		"query": { "server": "server", "room": "room" },
+		"fragment": { "message": "message" }
+	},
+	"self_hostable": true                           // optional
+}
 ```
 
 Each key in `query` and `fragment` is a link key (`server`, `room`,
@@ -86,7 +84,7 @@ Link keys you don't map, and a sign-in link's `token` and `state`, arrive in
 the fragment under their own names, unless your format already uses that
 name. A sign-in link ([SPEC.md §2.1](SPEC.md#21-sign-in-links)) opens the
 example above as
-`https://my-app.example/open?server=wss%3A%2F%2Fchat.example%2Fws#token=…&state=…`.
+`https://browser-chat.example/open?server=wss%3A%2F%2Fchat.example%2Fws#token=…&state=…`.
 
 Set `self_hostable` if people run copies of your web client at other
 addresses, as with Apron Web. They can then add their copy on the page, and
@@ -98,15 +96,23 @@ Add a key for each platform your app runs on. The page offers it only on
 those platforms.
 
 ```jsonc
-"ios": { "app_ids": ["TEAMID1234.example.myapp"], "store": "https://apps.apple.com/app/id…" },
-"android": {
-	"package": "example.myapp",
-	"sha256_cert_fingerprints": ["AB:CD:…"],
-	"store": "https://play.google.com/store/apps/details?id=example.myapp"
-},
-"macos": { "app_ids": ["TEAMID1234.example.myapp.mac"], "download": "https://my-app.example/download" },
-"windows": { "download": "https://my-app.example/download" },
-"linux": { "download": "https://my-app.example/download" }
+{
+	"id": "native-chat",
+	"name": "Native Chat",
+	"description": "Apron on phones and desktops.",
+	"homepage": "https://native-chat.example/",
+	"source": "https://github.com/me/native-chat",
+	"transports": ["wss"],
+	"ios": { "app_ids": ["TEAMID1234.example.nativechat"], "store": "https://apps.apple.com/app/id…" },
+	"android": {
+		"package": "example.nativechat",
+		"sha256_cert_fingerprints": ["AB:CD:…"],
+		"store": "https://play.google.com/store/apps/details?id=example.nativechat"
+	},
+	"macos": { "app_ids": ["TEAMID1234.example.nativechat.mac"], "download": "https://native-chat.example/download" },
+	"windows": { "download": "https://native-chat.example/download" },
+	"linux": { "download": "https://native-chat.example/download" }
+}
 ```
 
 `store` is optional, and so are a Mac app's `app_ids`.
