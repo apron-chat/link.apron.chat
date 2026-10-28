@@ -305,17 +305,9 @@ dd {
 }
 
 .app-group h3 {
-	display: flex;
-	justify-content: space-between;
-	gap: var(--space-3);
 	margin: var(--space-2) 0 0;
 	color: var(--ink-muted);
 	font-size: var(--text-ui);
-}
-
-.works-here {
-	color: var(--accent);
-	font-size: var(--text-sm);
 }
 
 .apps {

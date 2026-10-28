@@ -278,7 +278,7 @@ function landingView() {
 				)
 			);
 		}
-		return h('section', { class: here ? 'app-group here' : 'app-group' }, h('h3', {}, h('span', {}, GROUP_NAMES[group]), here && h('span', { class: 'works-here' }, 'Works here')), list);
+		return h('section', { class: here ? 'app-group here' : 'app-group' }, h('h3', {}, GROUP_NAMES[group]), list);
 	});
 	return h(
 		'section',
