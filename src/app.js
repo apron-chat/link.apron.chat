@@ -174,7 +174,7 @@ function linkView(link) {
 	const network = link.server.network;
 	if (block) {
 		card.append(notice('danger', `link.apron.chat has blocked this server: ${block.reason}`));
-		if (!signIn) card.append(copyRow(link, false));
+		if (!signIn) card.append(shareView(link, false));
 		return card;
 	}
 	if (signIn) card.append(notice('warn', "This link signs you in to the server above. Continue only if you just asked to sign in, on this device or another: a link someone sent you can sign you in to their account. link.apron.chat passes it to the app you choose, and keeps no copy."));
@@ -223,7 +223,7 @@ function linkView(link) {
 	}
 	card.append(h('p', { class: 'caution' }, 'An Apron server controls everything you see on it, including names and sign-in pages. Open links only to servers you trust.'));
 	// On another device, a loopback server would be that device's own.
-	if (!signIn) card.append(copyRow(link, network !== 'loopback'));
+	card.append(shareView(link, network !== 'loopback'));
 	return card;
 }
 
@@ -248,14 +248,29 @@ function destinationView(link) {
 
 /**
  * Copies the link, and when `scannable`, shows its web form as a QR code, to
- * open it on another device such as a phone.
+ * open it on another device such as a phone. A sign-in link is set apart,
+ * because it signs in whoever opens it, and never goes out as an `apron:`
+ * URI, which any app can claim.
  * @param {Link} link
  * @param {boolean} scannable
  */
-function copyRow(link, scannable) {
+function shareView(link, scannable) {
+	const signIn = signsIn(link);
 	const web = formatLink(link);
-	const row = h('div', { class: 'copy' }, copyButton('Copy link', web), copyButton('Copy apron: URI', formatUri(link)));
-	if (!scannable || new TextEncoder().encode(web).length > MAX_BYTES) return row;
+	const row = h('div', { class: 'copy' }, copyButton(signIn ? 'Copy sign-in link' : 'Copy link', web), !signIn && copyButton('Copy apron: URI', formatUri(link)));
+	const share = h('div', { class: signIn ? 'share sensitive' : 'share' });
+	if (signIn) {
+		share.append(
+			h(
+				'p',
+				{ class: 'share-warning' },
+				svg('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linecap': 'round', 'aria-hidden': 'true' }, svg('circle', { cx: '8', cy: '15', r: '4' }), svg('path', { d: 'M10.8 12.2 19 4m-2 2 2 2m-5 1 2 2' })),
+				h('span', {}, h('strong', {}, 'Sign-in link. '), 'Anyone who opens this link can sign in with it, be careful when sharing it.')
+			)
+		);
+	}
+	share.append(row);
+	if (!scannable || new TextEncoder().encode(web).length > MAX_BYTES) return share;
 	const figure = h('figure', { class: 'qr', id: 'qr', hidden: '' });
 	const toggle = h('button', { type: 'button', class: 'link-button', 'aria-expanded': 'false', 'aria-controls': 'qr' }, 'Show QR code');
 	toggle.addEventListener('click', () => {
@@ -266,7 +281,8 @@ function copyRow(link, scannable) {
 		toggle.textContent = show ? 'Hide QR code' : 'Show QR code';
 	});
 	row.append(toggle);
-	return h('div', {}, row, figure);
+	share.append(figure);
+	return share;
 }
 
 /**

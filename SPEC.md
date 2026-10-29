@@ -232,8 +232,10 @@ what the link refers to, and offers the clients that can open it.
   format already uses.
 - For a sign-in link, the page removes the link from the address bar before
   anything else, and keeps it in memory only. It says that the link signs
-  in. It does not offer the link to copy, as a QR code, or as an `apron:`
-  URI, because any app can claim that scheme.
+  in. It offers the link to copy and as a QR code, to pass on an invite or
+  to sign in on another device, and says there that anyone who opens the
+  link can sign in with it. It never offers the link as an `apron:` URI,
+  because any app can claim that scheme.
 - The page MAY show a link's web form as a QR code, to open it on another
   device. It does not for a server on a loopback host, which on another
   device would be that device's own.
@@ -302,9 +304,10 @@ exist because of these threats:
   and the client decides ([§2.1](#21-sign-in-links)). Passing a link on adds
   no risk, because anyone can link to a client with a token directly. What
   the page must not do is leak the token. So the token stays in fragments,
-  out of the address bar and history, out of copied links, and out of
-  `apron:` URIs. With "Remember my choice", the client's check is the only
-  one.
+  out of the address bar and history, and out of `apron:` URIs. The viewer
+  can still copy the link or show it as a QR code, because invites are
+  made to be passed on; the page says that anyone who opens it can sign in
+  with it. With "Remember my choice", the client's check is the only one.
 - **Keys passed on.** The page passes keys that it does not know to the
   client. They reach only the client's fragment, which a client treats as
   untrusted in any case: anyone can write it in a direct link.
