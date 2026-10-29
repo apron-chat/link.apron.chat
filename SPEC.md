@@ -232,8 +232,11 @@ what the link refers to, and offers the clients that can open it.
   format already uses.
 - For a sign-in link, the page removes the link from the address bar before
   anything else, and keeps it in memory only. It says that the link signs
-  in. It does not offer the link to copy, or as an `apron:` URI, because any
-  app can claim that scheme.
+  in. It does not offer the link to copy, as a QR code, or as an `apron:`
+  URI, because any app can claim that scheme.
+- The page MAY show a link's web form as a QR code, to open it on another
+  device. It does not for a server on a loopback host, which on another
+  device would be that device's own.
 - The page refuses a link with a credential key in its query, and removes
   it from the address bar.
 - The page refuses a server on the blocklist (`blocked.json`), and the names

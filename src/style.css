@@ -284,6 +284,27 @@ dd {
 	text-decoration: underline;
 }
 
+.qr {
+	margin: var(--space-4) 0 0;
+	text-align: center;
+}
+
+/* White in both themes: the light quiet zone is part of the code. */
+.qr svg {
+	display: block;
+	width: 100%;
+	max-width: 280px;
+	height: auto;
+	margin: 0 auto;
+	border-radius: var(--radius-md);
+}
+
+.qr figcaption {
+	margin-top: var(--space-2);
+	color: var(--ink-muted);
+	font-size: var(--text-ui);
+}
+
 .example {
 	background: var(--bg-200);
 	border-radius: var(--radius-md);

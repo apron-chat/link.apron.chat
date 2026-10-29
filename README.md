@@ -29,6 +29,7 @@ npm run build   # write the site to build/
 | path | what |
 |------|------|
 | `src/link.js` | reads and writes links: parsing, checks, encoding |
+| `src/qr.js` | makes the QR codes the page shows, to open a link on another device |
 | `src/registry.js` | checks `clients.json` and `blocked.json`, picks what to offer, builds the app association files |
 | `src/app.js` | the page |
 | `clients.json` | the apps the page offers |
