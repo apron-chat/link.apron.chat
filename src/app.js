@@ -7,7 +7,7 @@
  * All markup is built with DOM calls and `textContent`: the page's CSP
  * forbids the HTML sinks (Trusted Types), because a link chooses every value.
  */
-import { formatLink, formatParams, formatUri, hasCredential, messageTime, parseLink, parseLocation, signsIn, visible } from './link.js';
+import { CREDENTIAL_KEYS, formatLink, formatParams, formatUri, hasCredential, messageTime, parseLink, parseLocation, signsIn, visible } from './link.js';
 import { appGroups, autoOpen, blockedEntry, checkWebAppUrl, CUSTOM_PREFIX, detectPlatform, nativeStore, offersFor, selfHostable, unsupportedTransport, withCustom } from './registry.js';
 import { blocked, registry } from './data.js';
 import { MAX_BYTES, qrCode } from './qr.js';
@@ -177,7 +177,7 @@ function linkView(link) {
 		if (!signIn) card.append(shareView(link, false));
 		return card;
 	}
-	if (signIn) card.append(notice('warn', "This link signs you in to the server above. Continue only if you just asked to sign in, on this device or another: a link someone sent you can sign you in to their account. link.apron.chat passes it to the app you choose, and keeps no copy."));
+	if (signIn) card.append(notice('warn', 'Continue only if you asked to sign in, or expected an invite.'));
 	if (network === 'loopback') card.append(notice('warn', 'This link points at a server on your own device. Open it only if you expected it: a local server can run tools and code for you.'));
 	else if (network === 'private') card.append(notice('warn', 'This link points at a server on a private network, such as a home or office network.'));
 
@@ -243,7 +243,28 @@ function destinationView(link) {
 		const time = messageTime(link.message);
 		row('Message', h('time', { datetime: time.toISOString() }, time.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })), h('code', { class: 'id' }, link.message));
 	}
+	// The keys passed on to the client, under their own names. A credential is hidden until asked for.
+	for (const [key, value] of link.extra) {
+		const term = h('code', {}, visible(key, 24));
+		rows.append(h('div', { class: 'row' }, h('dt', {}, term), h('dd', {}, CREDENTIAL_KEYS.includes(key) ? secretView(key, value) : h('code', {}, visible(value)))));
+	}
 	return rows;
+}
+
+/** A credential's value, masked like a password field until the viewer reveals it. */
+function secretView(/** @type {string} */ key, /** @type {string} */ value) {
+	const MASK = '••••••••••••';
+	const shown = h('code', { class: 'masked' }, MASK);
+	const toggle = h('button', { type: 'button', class: 'link-button', 'aria-pressed': 'false', 'aria-label': `Show ${visible(key, 24)}` }, 'Show');
+	toggle.addEventListener('click', () => {
+		const reveal = toggle.getAttribute('aria-pressed') !== 'true';
+		shown.textContent = reveal ? visible(value) : MASK;
+		shown.classList.toggle('masked', !reveal);
+		toggle.setAttribute('aria-pressed', String(reveal));
+		toggle.setAttribute('aria-label', `${reveal ? 'Hide' : 'Show'} ${visible(key, 24)}`);
+		toggle.textContent = reveal ? 'Hide' : 'Show';
+	});
+	return h('div', { class: 'secret' }, shown, toggle);
 }
 
 /**
