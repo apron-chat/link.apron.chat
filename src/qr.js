@@ -8,6 +8,8 @@
  * the smallest version that holds the text at error correction level M, which
  * stays readable off a screen with some glare, then the highest level that
  * still fits that version: once the size is set, more correction is free.
+ * Byte mode carries no ECI header, so scanners guess the character set:
+ * callers pass ASCII, as a link is.
  *
  * Written here rather than imported, because the page loads nothing from
  * another origin and the site has no dependencies. The steps follow Project

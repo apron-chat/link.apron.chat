@@ -176,20 +176,26 @@ dt {
 	padding-top: 2px;
 }
 
-dt code {
-	font-size: var(--text-sm);
+/* One key passed on per line: its name, then its value. */
+.extra {
+	font-family: var(--font-mono);
+	font-size: var(--text-field);
 }
 
-/* A credential's value and its Show button, on one line while it fits. */
+.extra + .extra {
+	margin-top: var(--space-1);
+}
+
+.extra > code:first-child {
+	color: var(--ink-muted);
+}
+
+/* A credential's value and its Show button. */
 .secret {
-	display: flex;
+	display: inline-flex;
 	flex-wrap: wrap;
 	align-items: baseline;
 	gap: var(--space-1) var(--space-3);
-}
-
-.secret code {
-	min-width: 0;
 }
 
 .masked {

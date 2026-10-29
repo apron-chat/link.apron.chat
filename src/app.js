@@ -24,6 +24,8 @@ const REMEMBER_KEY = 'remember-choice';
 const SAVED_KEY = 'web-apps';
 const REPOSITORY = 'https://github.com/apron-chat/link.apron.chat';
 const SVG = 'http://www.w3.org/2000/svg';
+/** The most keys passed on that the page lists; a link can carry any number. */
+const MAX_EXTRA = 10;
 const platform = detectPlatform(navigator);
 /** @type {Record<import('./registry.js').AppGroup, string>} */
 const GROUP_NAMES = { web: 'Web', ios: 'iOS', android: 'Android', macos: 'macOS', windows: 'Windows', linux: 'Linux' };
@@ -243,10 +245,15 @@ function destinationView(link) {
 		const time = messageTime(link.message);
 		row('Message', h('time', { datetime: time.toISOString() }, time.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })), h('code', { class: 'id' }, link.message));
 	}
-	// The keys passed on to the client, under their own names. A credential is hidden until asked for.
-	for (const [key, value] of link.extra) {
-		const term = h('code', {}, visible(key, 24));
-		rows.append(h('div', { class: 'row' }, h('dt', {}, term), h('dd', {}, CREDENTIAL_KEYS.includes(key) ? secretView(key, value) : h('code', {}, visible(value)))));
+	// The keys passed on to the client, under one label of the page's own: a
+	// link chooses the names, and could otherwise name a row "Server". A
+	// credential is hidden until asked for.
+	if (link.extra.length) {
+		const pairs = link.extra.slice(0, MAX_EXTRA).map(([key, value]) =>
+			h('div', { class: 'extra' }, h('code', {}, `${visible(key, 24)}=`), CREDENTIAL_KEYS.includes(key) ? secretView(key, value) : h('code', {}, visible(value)))
+		);
+		if (link.extra.length > MAX_EXTRA) pairs.push(h('div', { class: 'url' }, `and ${link.extra.length - MAX_EXTRA} more`));
+		row('Also', ...pairs);
 	}
 	return rows;
 }
@@ -254,17 +261,21 @@ function destinationView(link) {
 /** A credential's value, masked like a password field until the viewer reveals it. */
 function secretView(/** @type {string} */ key, /** @type {string} */ value) {
 	const MASK = '••••••••••••';
-	const shown = h('code', { class: 'masked' }, MASK);
-	const toggle = h('button', { type: 'button', class: 'link-button', 'aria-pressed': 'false', 'aria-label': `Show ${visible(key, 24)}` }, 'Show');
+	const name = visible(key, 24);
+	// Screen readers skip the mask; the button says what it shows.
+	const shown = h('code', { class: 'masked', 'aria-hidden': 'true' }, MASK);
+	const toggle = h('button', { type: 'button', class: 'link-button', 'aria-label': `Show ${name}` }, 'Show');
+	let revealed = false;
 	toggle.addEventListener('click', () => {
-		const reveal = toggle.getAttribute('aria-pressed') !== 'true';
-		shown.textContent = reveal ? visible(value) : MASK;
-		shown.classList.toggle('masked', !reveal);
-		toggle.setAttribute('aria-pressed', String(reveal));
-		toggle.setAttribute('aria-label', `${reveal ? 'Hide' : 'Show'} ${visible(key, 24)}`);
-		toggle.textContent = reveal ? 'Hide' : 'Show';
+		revealed = !revealed;
+		shown.textContent = revealed ? visible(value) : MASK;
+		shown.classList.toggle('masked', !revealed);
+		if (revealed) shown.removeAttribute('aria-hidden');
+		else shown.setAttribute('aria-hidden', 'true');
+		toggle.setAttribute('aria-label', `${revealed ? 'Hide' : 'Show'} ${name}`);
+		toggle.textContent = revealed ? 'Hide' : 'Show';
 	});
-	return h('div', { class: 'secret' }, shown, toggle);
+	return h('span', { class: 'secret' }, shown, toggle);
 }
 
 /**

@@ -97,6 +97,8 @@ https://link.apron.chat/#server=wss://chat.example/ws&token=inv_Qm7x…
 - A server never writes a sign-in link in the `apron:` form, because any
   app can claim that scheme.
 - A client never writes a sign-in link, and never copies or shares one.
+  (link.apron.chat is not a client: it shares a sign-in link only when the
+  viewer asks, with a warning, [§7](#7-linkapronchat).)
 - A client uses a sign-in link with the `state` of a proposal that it made
   on the server that the proposal went to, whatever `server` the link
   names. It uses any other sign-in link only after the user confirms, on a
@@ -306,8 +308,9 @@ exist because of these threats:
   the page must not do is leak the token. So the token stays in fragments,
   out of the address bar and history, and out of `apron:` URIs. The viewer
   can still copy the link or show it as a QR code, because invites are
-  made to be passed on; the page says that anyone who opens it can sign in
-  with it. With "Remember my choice", the client's check is the only one.
+  made to be passed on. The page can't tell an invite from a sign-in
+  token, so it shares both, and says that anyone who opens the link can
+  sign in with it. With "Remember my choice", the client's check is the only one.
 - **Keys passed on.** The page passes keys that it does not know to the
   client. They reach only the client's fragment, which a client treats as
   untrusted in any case: anyone can write it in a direct link.
