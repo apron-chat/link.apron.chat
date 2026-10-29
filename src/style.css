@@ -176,6 +176,34 @@ dt {
 	padding-top: 2px;
 }
 
+/* One key passed on per line: its name, then its value. */
+.extra {
+	font-family: var(--font-mono);
+	font-size: var(--text-field);
+}
+
+.extra + .extra {
+	margin-top: var(--space-1);
+}
+
+.extra > code:first-child {
+	color: var(--ink-muted);
+}
+
+/* A credential's value and its Show button. */
+.secret {
+	display: inline-flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: var(--space-1) var(--space-3);
+}
+
+.masked {
+	color: var(--ink-muted);
+	letter-spacing: 0.1em;
+	user-select: none;
+}
+
 dd {
 	margin: 0;
 	min-width: 0;
@@ -282,6 +310,59 @@ dd {
 
 .link-button:hover {
 	text-decoration: underline;
+}
+
+/* A sign-in link signs in whoever opens it, so sharing one is set apart. */
+.share.sensitive {
+	margin-top: var(--space-4);
+	padding: var(--space-3) var(--space-4) var(--space-4);
+	border: 1px solid var(--warn);
+	border-radius: var(--radius-md);
+	background: color-mix(in srgb, var(--warn) 8%, transparent);
+}
+
+.share.sensitive .copy {
+	margin-top: var(--space-3);
+}
+
+.share-warning {
+	display: flex;
+	gap: var(--space-2);
+	margin: 0;
+	font-size: var(--text-field);
+}
+
+.share-warning svg {
+	flex: none;
+	width: 18px;
+	height: 18px;
+	margin-top: 1px;
+	color: var(--warn);
+}
+
+.share-warning strong {
+	color: var(--warn);
+}
+
+.qr {
+	margin: var(--space-4) 0 0;
+	text-align: center;
+}
+
+/* White in both themes: the light quiet zone is part of the code. */
+.qr svg {
+	display: block;
+	width: 100%;
+	max-width: 280px;
+	height: auto;
+	margin: 0 auto;
+	border-radius: var(--radius-md);
+}
+
+.qr figcaption {
+	margin-top: var(--space-2);
+	color: var(--ink-muted);
+	font-size: var(--text-ui);
 }
 
 .example {

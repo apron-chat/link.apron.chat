@@ -239,7 +239,7 @@ export function formatParams(link) {
 
 /**
  * Whether a link signs in: it carries a credential key (SPEC.md §2.1), to
- * pass on to the client and never to copy or keep.
+ * pass on to the client, never to keep, and to share only with a warning.
  * @param {Link} link
  */
 export function signsIn(link) {

@@ -26,6 +26,7 @@ test('the build holds only the expected files', () => {
 		'index.html',
 		'link.js',
 		'logo.svg',
+		'qr.js',
 		'registry.js',
 		'robots.txt',
 		'style.css'
@@ -38,7 +39,7 @@ test('the build holds only the expected files', () => {
 });
 
 test('the page never uses an HTML sink', () => {
-	for (const file of ['app.js', 'link.js', 'registry.js']) {
+	for (const file of ['app.js', 'link.js', 'qr.js', 'registry.js']) {
 		const source = readFileSync(join(root, 'src', file), 'utf8');
 		assert.doesNotMatch(source, /innerHTML|outerHTML|insertAdjacentHTML|document\.write|\beval\(|new Function/, file);
 	}

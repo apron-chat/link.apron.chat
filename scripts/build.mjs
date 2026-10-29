@@ -18,7 +18,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const out = join(root, 'build');
 
 /** Files copied from src/ as they are. */
-const PAGE_FILES = ['index.html', '404.html', 'style.css', 'app.js', 'link.js', 'registry.js', 'logo.svg', 'robots.txt'];
+const PAGE_FILES = ['index.html', '404.html', 'style.css', 'app.js', 'link.js', 'registry.js', 'qr.js', 'logo.svg', 'robots.txt'];
 
 /**
  * Headers for every response. The page builds all of its markup with DOM

@@ -7,9 +7,10 @@
  * All markup is built with DOM calls and `textContent`: the page's CSP
  * forbids the HTML sinks (Trusted Types), because a link chooses every value.
  */
-import { formatLink, formatParams, formatUri, hasCredential, messageTime, parseLink, parseLocation, signsIn, visible } from './link.js';
+import { CREDENTIAL_KEYS, formatLink, formatParams, formatUri, hasCredential, messageTime, parseLink, parseLocation, signsIn, visible } from './link.js';
 import { appGroups, autoOpen, blockedEntry, checkWebAppUrl, CUSTOM_PREFIX, detectPlatform, nativeStore, offersFor, selfHostable, unsupportedTransport, withCustom } from './registry.js';
 import { blocked, registry } from './data.js';
+import { MAX_BYTES, qrCode } from './qr.js';
 
 /** @typedef {import('./link.js').Link} Link */
 /** @typedef {import('./link.js').Reason} Reason */
@@ -22,6 +23,9 @@ const REMEMBER_KEY = 'remember-choice';
 /** Self-hosted web clients the viewer added, as `SavedWebApp[]` in JSON. */
 const SAVED_KEY = 'web-apps';
 const REPOSITORY = 'https://github.com/apron-chat/link.apron.chat';
+const SVG = 'http://www.w3.org/2000/svg';
+/** The most keys passed on that the page lists; a link can carry any number. */
+const MAX_EXTRA = 10;
 const platform = detectPlatform(navigator);
 /** @type {Record<import('./registry.js').AppGroup, string>} */
 const GROUP_NAMES = { web: 'Web', ios: 'iOS', android: 'Android', macos: 'macOS', windows: 'Windows', linux: 'Linux' };
@@ -58,6 +62,14 @@ function h(tag, attrs = {}, ...children) {
 	const element = document.createElement(tag);
 	for (const [name, value] of Object.entries(attrs)) if (value !== undefined) element.setAttribute(name, value);
 	for (const child of children) if (child) element.append(child);
+	return element;
+}
+
+/** As `h`, for SVG elements. */
+function svg(/** @type {string} */ tag, /** @type {Record<string, string>} */ attrs, /** @type {Node[]} */ ...children) {
+	const element = document.createElementNS(SVG, tag);
+	for (const [name, value] of Object.entries(attrs)) element.setAttribute(name, value);
+	element.append(...children);
 	return element;
 }
 
@@ -164,10 +176,10 @@ function linkView(link) {
 	const network = link.server.network;
 	if (block) {
 		card.append(notice('danger', `link.apron.chat has blocked this server: ${block.reason}`));
-		if (!signIn) card.append(copyRow(link));
+		if (!signIn) card.append(shareView(link, false));
 		return card;
 	}
-	if (signIn) card.append(notice('warn', "This link signs you in to the server above. Continue only if you just asked to sign in, on this device or another: a link someone sent you can sign you in to their account. link.apron.chat passes it to the app you choose, and keeps no copy."));
+	if (signIn) card.append(notice('warn', 'Continue only if you asked to sign in, or expected an invite.'));
 	if (network === 'loopback') card.append(notice('warn', 'This link points at a server on your own device. Open it only if you expected it: a local server can run tools and code for you.'));
 	else if (network === 'private') card.append(notice('warn', 'This link points at a server on a private network, such as a home or office network.'));
 
@@ -212,7 +224,8 @@ function linkView(link) {
 		card.append(h('details', { class: 'add-app' }, h('summary', {}, `Use your own ${selfHostable(registry)[0].name}`), webAppForm(render)));
 	}
 	card.append(h('p', { class: 'caution' }, 'An Apron server controls everything you see on it, including names and sign-in pages. Open links only to servers you trust.'));
-	if (!signIn) card.append(copyRow(link));
+	// On another device, a loopback server would be that device's own.
+	card.append(shareView(link, network !== 'loopback'));
 	return card;
 }
 
@@ -232,12 +245,100 @@ function destinationView(link) {
 		const time = messageTime(link.message);
 		row('Message', h('time', { datetime: time.toISOString() }, time.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })), h('code', { class: 'id' }, link.message));
 	}
+	// The keys passed on to the client, under one label of the page's own: a
+	// link chooses the names, and could otherwise name a row "Server". A
+	// credential is hidden until asked for.
+	if (link.extra.length) {
+		const pairs = link.extra.slice(0, MAX_EXTRA).map(([key, value]) =>
+			h('div', { class: 'extra' }, h('code', {}, `${visible(key, 24)}=`), CREDENTIAL_KEYS.includes(key) ? secretView(key, value) : h('code', {}, visible(value)))
+		);
+		if (link.extra.length > MAX_EXTRA) pairs.push(h('div', { class: 'url' }, `and ${link.extra.length - MAX_EXTRA} more`));
+		row('Also', ...pairs);
+	}
 	return rows;
 }
 
-/** @param {Link} link */
-function copyRow(link) {
-	return h('div', { class: 'copy' }, copyButton('Copy link', formatLink(link)), copyButton('Copy apron: URI', formatUri(link)));
+/** A credential's value, masked like a password field until the viewer reveals it. */
+function secretView(/** @type {string} */ key, /** @type {string} */ value) {
+	const MASK = '••••••••••••';
+	const name = visible(key, 24);
+	// Screen readers skip the mask; the button says what it shows.
+	const shown = h('code', { class: 'masked', 'aria-hidden': 'true' }, MASK);
+	const toggle = h('button', { type: 'button', class: 'link-button', 'aria-label': `Show ${name}` }, 'Show');
+	let revealed = false;
+	toggle.addEventListener('click', () => {
+		revealed = !revealed;
+		shown.textContent = revealed ? visible(value) : MASK;
+		shown.classList.toggle('masked', !revealed);
+		if (revealed) shown.removeAttribute('aria-hidden');
+		else shown.setAttribute('aria-hidden', 'true');
+		toggle.setAttribute('aria-label', `${revealed ? 'Hide' : 'Show'} ${name}`);
+		toggle.textContent = revealed ? 'Hide' : 'Show';
+	});
+	return h('span', { class: 'secret' }, shown, toggle);
+}
+
+/**
+ * Copies the link, and when `scannable`, shows its web form as a QR code, to
+ * open it on another device such as a phone. A sign-in link is set apart,
+ * because it signs in whoever opens it, and never goes out as an `apron:`
+ * URI, which any app can claim.
+ * @param {Link} link
+ * @param {boolean} scannable
+ */
+function shareView(link, scannable) {
+	const signIn = signsIn(link);
+	const web = formatLink(link);
+	const row = h('div', { class: 'copy' }, copyButton(signIn ? 'Copy sign-in link' : 'Copy link', web), !signIn && copyButton('Copy apron: URI', formatUri(link)));
+	const share = h('div', { class: signIn ? 'share sensitive' : 'share' });
+	if (signIn) {
+		share.append(
+			h(
+				'p',
+				{ class: 'share-warning' },
+				svg('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linecap': 'round', 'aria-hidden': 'true' }, svg('circle', { cx: '8', cy: '15', r: '4' }), svg('path', { d: 'M10.8 12.2 19 4m-2 2 2 2m-5 1 2 2' })),
+				h('span', {}, h('strong', {}, 'Sign-in link. '), 'Anyone who opens this link can sign in with it, be careful when sharing it.')
+			)
+		);
+	}
+	share.append(row);
+	if (!scannable || new TextEncoder().encode(web).length > MAX_BYTES) return share;
+	const figure = h('figure', { class: 'qr', id: 'qr', hidden: '' });
+	const toggle = h('button', { type: 'button', class: 'link-button', 'aria-expanded': 'false', 'aria-controls': 'qr' }, 'Show QR code');
+	toggle.addEventListener('click', () => {
+		const show = figure.hidden;
+		if (show && !figure.firstChild) figure.append(qrImage(web), h('figcaption', {}, 'Scan it with another device to open this link there.'));
+		figure.hidden = !show;
+		toggle.setAttribute('aria-expanded', String(show));
+		toggle.textContent = show ? 'Hide QR code' : 'Show QR code';
+	});
+	row.append(toggle);
+	share.append(figure);
+	return share;
+}
+
+/**
+ * A QR code of `text`, as SVG: dark on light in either theme, because that is
+ * what scanners read best, inside the standard's quiet zone of four modules.
+ */
+function qrImage(/** @type {string} */ text) {
+	const { modules } = qrCode(text);
+	const size = modules.length + 8;
+	let path = '';
+	modules.forEach((row, y) => {
+		for (let x = 0; x < row.length; x++) {
+			if (!row[x]) continue;
+			const start = x;
+			while (row[x + 1]) x++;
+			path += `M${start + 4} ${y + 4}h${x - start + 1}v1h-${x - start + 1}z`;
+		}
+	});
+	return svg(
+		'svg',
+		{ viewBox: `0 0 ${size} ${size}`, role: 'img', 'aria-label': 'QR code of this link', 'shape-rendering': 'crispEdges' },
+		svg('rect', { width: String(size), height: String(size), fill: '#fff' }),
+		svg('path', { d: path, fill: '#000' })
+	);
 }
 
 function copyButton(/** @type {string} */ label, /** @type {string} */ text) {
