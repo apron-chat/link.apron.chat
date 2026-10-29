@@ -274,7 +274,7 @@ function copyRow(link, scannable) {
  * what scanners read best, inside the standard's quiet zone of four modules.
  */
 function qrImage(/** @type {string} */ text) {
-	const modules = qrCode(text);
+	const { modules } = qrCode(text);
 	const size = modules.length + 8;
 	let path = '';
 	modules.forEach((row, y) => {
