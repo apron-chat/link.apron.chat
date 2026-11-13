@@ -44,3 +44,13 @@ test('the page never uses an HTML sink', () => {
 		assert.doesNotMatch(source, /innerHTML|outerHTML|insertAdjacentHTML|document\.write|\beval\(|new Function/, file);
 	}
 });
+
+test('the page offers no link preview card', () => {
+	// A preview fetches the page without the fragment, so a card can only
+	// point at the bare site: Discord links its title to https://link.apron.chat/.
+	for (const file of ['index.html', '404.html']) {
+		const source = readFileSync(join(root, 'src', file), 'utf8');
+		assert.doesNotMatch(source, /<meta\s+(property|name)="(og:|twitter:|description)/, file);
+		assert.doesNotMatch(source, /<link\s+rel="(alternate|canonical)"/, file);
+	}
+});

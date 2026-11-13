@@ -227,6 +227,10 @@ what the link refers to, and offers the clients that can open it.
 - The page keeps the viewer's default client, the remembered choice, and
   added web clients in the browser only. The default is offered first.
 - The page loads no script, style, or image from another origin.
+- The page has no description or OpenGraph tags, so chat apps show no
+  preview card for a link. A preview fetches the page without the
+  fragment, so its card can't show the link, and some apps (Discord) link
+  the card to the bare site, dropping the link.
 - The page passes the keys that the client's registry entry does not map on
   to the client, under their own names, in the fragment of the client's
   address, after the keys that it maps. It never puts them in the query, which the
